@@ -5,9 +5,13 @@ import { resolve } from 'path'
 
 export default defineConfig({
   base: '/Whisperbox/',
+  plugins: [
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw-custom.ts',
       manifest: {
         name: 'Whisperbox',
         short_name: 'Whisperbox',
@@ -16,9 +20,12 @@ export default defineConfig({
         background_color: '#080808',
         display: 'standalone',
         icons: [
-          { src: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icon-512.png', sizes: '512x512', type: 'image/png' }
+          { src: '/Whisperbox/icon-192.png', sizes: '192x192', type: 'image/png' },
+          { src: '/Whisperbox/icon-512.png', sizes: '512x512', type: 'image/png' }
         ]
+      },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,svg,png,woff2}']
       }
     })
   ],
@@ -27,7 +34,6 @@ export default defineConfig({
       '@': resolve(__dirname, 'src')
     }
   },
-  // Tauri 开发模式需要的配置
   clearScreen: false,
   server: {
     port: 1420,
@@ -35,3 +41,4 @@ export default defineConfig({
   },
   envPrefix: ['VITE_', 'TAURI_']
 })
+
