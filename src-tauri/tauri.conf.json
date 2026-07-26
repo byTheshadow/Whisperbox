@@ -1,0 +1,44 @@
+{
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build",
+    "devPath": "http://localhost:1420",
+    "distDir": "../dist"
+  },
+  "package": {
+    "productName": "Whisperbox",
+    "version": "0.1.0"
+  },
+  "tauri": {
+    "allowlist": {
+      "all": false,
+      "window": { "all": true },
+      "notification": { "all": true },
+      "fs": { "all": true, "scope": ["$APPDATA/**", "$DOCUMENT/**"] },
+      "path": { "all": true },
+      "shell": { "open": true }
+    },
+    "bundle": {
+      "active": true,
+      "identifier": "com.whisperbox.app",
+      "icon": ["icons/icon.png"]
+    },
+    "windows": [
+      {
+        "title": "Whisperbox",
+        "width": 1200,
+        "height": 780,
+        "minWidth": 900,
+        "minHeight": 600,
+        "decorations": false,
+        "transparent": true,
+        "resizable": true,
+        "center": true
+      }
+    ],
+    "systemTray": {
+      "iconPath": "icons/tray-icon.png",
+      "iconAsTemplate": true
+    }
+  }
+}
