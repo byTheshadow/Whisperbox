@@ -4,7 +4,7 @@ import { VitePWA } from 'vite-plugin-pwa'
 import { resolve } from 'path'
 
 export default defineConfig({
-  plugins: [
+  base: '/Whisperbox/',
     vue(),
     VitePWA({
       registerType: 'autoUpdate',
