@@ -14,6 +14,23 @@
     --glass-border-hover: rgba(255, 255, 255, 0.15);
   }
 
+  html,
+  body,
+  #app {
+    width: 100%;
+    min-height: 100%;
+  }
+
+  body {
+    font-family: 'Cormorant Garamond', 'Noto Serif SC', serif;
+    background: var(--color-abyss);
+    color: var(--color-bone);
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
   * {
     scrollbar-width: thin;
     scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
@@ -21,6 +38,7 @@
 
   *::-webkit-scrollbar {
     width: 4px;
+    height: 4px;
   }
 
   *::-webkit-scrollbar-track {
@@ -32,17 +50,13 @@
     border-radius: 2px;
   }
 
-  body {
-    font-family: 'Cormorant Garamond', 'Noto Serif SC', serif;
-    background: var(--color-abyss);
-    color: var(--color-bone);
-    min-height: 100vh;
-    overflow: hidden;
-  }
-
-  /* 禁止选中文本的拖动效果干扰 */
   [data-tauri-drag-region] {
     -webkit-app-region: drag;
+  }
+
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
@@ -53,19 +67,11 @@
     background: var(--glass-bg);
     border: 1px solid var(--glass-border);
     border-radius: 16px;
-    transition: border-color 0.3s ease;
+    transition: border-color 0.3s ease, transform 0.2s ease;
   }
 
   .glass-panel:hover {
     border-color: var(--glass-border-hover);
-  }
-
-  .glass-panel-solid {
-    backdrop-filter: blur(var(--glass-blur));
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    background: rgba(12, 12, 12, 0.85);
-    border: 1px solid var(--glass-border);
-    border-radius: 16px;
   }
 
   .gothic-title {

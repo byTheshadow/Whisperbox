@@ -1,30 +1,33 @@
 <template>
-  <div class="app-shell w-screen h-screen relative overflow-hidden">
+  <div class="app-shell w-screen h-screen relative overflow-x-hidden overflow-y-auto">
     <!-- 背景纹理层 -->
     <div class="absolute inset-0 bg-noise opacity-[0.03] pointer-events-none" aria-hidden="true"></div>
-    
-    <!-- 自定义标题栏（Tauri 无边框窗口） -->
+
+    <!-- 自定义标题栏 -->
     <header
       data-tauri-drag-region
-      class="fixed top-0 left-0 right-0 h-8 z-50 flex items-center justify-between px-4"
+      class="fixed top-0 left-0 right-0 h-10 sm:h-8 z-50 flex items-center justify-between px-3 sm:px-4
+             backdrop-blur-md bg-black/20 border-b border-white/5"
     >
-      <span class="gothic-title text-xs tracking-widest opacity-40 select-none">WHISPERBOX</span>
-      <div class="flex items-center gap-1">
+      <span class="gothic-title text-[10px] sm:text-xs tracking-[0.25em] opacity-40 select-none">
+        WHISPERBOX
+      </span>
+
+      <div class="flex items-center gap-2 sm:gap-1">
         <button
-          class="w-3 h-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          class="w-4 h-4 sm:w-3 sm:h-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           aria-label="最小化窗口"
           @click="minimizeWindow"
         ></button>
         <button
-          class="w-3 h-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+          class="w-4 h-4 sm:w-3 sm:h-3 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
           aria-label="关闭窗口"
           @click="closeWindow"
         ></button>
       </div>
     </header>
 
-    <!-- 路由视图 -->
-    <main class="pt-8 h-full">
+    <main class="pt-10 sm:pt-8 min-h-full">
       <router-view v-slot="{ Component }">
         <transition name="page-fade" mode="out-in">
           <component :is="Component" />
@@ -40,17 +43,13 @@ import { appWindow } from '@tauri-apps/api/window'
 async function minimizeWindow() {
   try {
     await appWindow.minimize()
-  } catch {
-    // PWA 模式下静默忽略
-  }
+  } catch {}
 }
 
 async function closeWindow() {
   try {
     await appWindow.hide()
-  } catch {
-    // PWA 模式下静默忽略
-  }
+  } catch {}
 }
 </script>
 
