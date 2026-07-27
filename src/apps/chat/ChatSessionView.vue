@@ -48,10 +48,12 @@
     <!-- 消息列表（滚动区域） -->
     <div ref="messageListRef" class="message-list">
       <div
-        v-for="msg in messages"
-        :key="msg.id"
-        :class="['message-row', msg.role]"
-      >
+  v-for="msg in messages"
+  :key="msg.id"
+  :class="['message-row', msg.role]"
+  @contextmenu.prevent="openContextMenu($event, msg)"
+>
+
         <!-- 角色头像 -->
         <div v-if="msg.role === 'assistant'" class="msg-avatar">
           <img v-if="character?.avatar" :src="character.avatar" alt="" />
@@ -926,6 +928,18 @@ async function handleClearMessages() {
   closeContextMenu()
   showSessionMenu.value = false
 }
+// 删除当前对话及其消息
+async function handleDeleteSession() {
+  if (!window.confirm('确定删除这个对话吗？所有聊天记录将一并删除，且无法恢复。')) return
+
+  // 删除会话关联的消息；Dexie 不会自动级联删除。
+  await db.messages.where('sessionId').equals(sessionId).delete()
+  await db.chatSessions.delete(sessionId)
+
+  showSessionMenu.value = false
+  router.push('/chat')
+}
+
 
 // 设置壁纸
 function handleSetWallpaper() {
