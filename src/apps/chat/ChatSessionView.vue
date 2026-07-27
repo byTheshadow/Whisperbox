@@ -510,9 +510,8 @@ import {
   deleteMessage,
   getSessionMessages,
   sendAndGetReply,
-  rerollMessage
+  rerollMessage,
   sendProactiveReply
-
 } from './services/chatService'
 import {
   addSticker,
