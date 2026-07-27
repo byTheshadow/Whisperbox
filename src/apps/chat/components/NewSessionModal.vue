@@ -35,12 +35,30 @@
         </div>
 
         <div v-else class="char-grid">
-          <div
-            v-for="char in characters"
-            :key="char.id"
-            :class="['char-card', { selected: selectedCharId === char.id }]"
-            @click="selectedCharId = char.id"
-          >
+         <div
+  v-for="char in characters"
+  :key="char.id"
+  :class="['char-card', { selected: selectedCharId === char.id }]"
+  @click="selectedCharId = char.id"
+>
+  <button
+    class="char-delete-btn"
+    type="button"
+    title="删除角色"
+    @click="handleDeleteCharacter(char.id, $event)"
+  >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round"/>
+      <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round"/>
+    </svg>
+  </button>
+  <div class="char-avatar-small">
+    <img v-if="char.avatar" :src="char.avatar" alt="" />
+    <span v-else>{{ char.name.charAt(0) }}</span>
+  </div>
+  <span class="char-name-small">{{ char.name }}</span>
+</div>
+
             <div class="char-avatar-small">
               <img v-if="char.avatar" :src="char.avatar" alt="" />
               <span v-else>{{ char.name.charAt(0) }}</span>
@@ -346,6 +364,23 @@ async function startWithImported() {
     creating.value = false
   }
 }
+
+async function handleDeleteCharacter(id: string, e: Event) {
+  e.stopPropagation()
+
+  const char = characters.value.find(c => c.id === id)
+  if (!char) return
+
+  if (!window.confirm(`确定删除角色「${char.name}」吗？相关对话不会被删除。`)) return
+
+  await db.characters.delete(id)
+  characters.value = await getAllCharacters()
+
+  if (selectedCharId.value === id) {
+    selectedCharId.value = ''
+  }
+}
+
 </script>
 
 <style scoped>
@@ -698,4 +733,34 @@ async function startWithImported() {
 .modal-leave-to .modal-content {
   transform: scale(0.95);
 }
+.char-card {
+  position: relative;
+}
+
+.char-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  color: rgba(245, 245, 245, 0.5);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.char-card:hover .char-delete-btn {
+  opacity: 1;
+}
+
+.char-delete-btn:hover {
+  color: #e57373;
+}
+
 </style>

@@ -52,8 +52,6 @@ export async function addMessage(
   }
 
   await db.messages.add(message)
-
-  // 更新会话最后消息时间
   await db.chatSessions.update(sessionId, { lastMessageAt: now })
 
   return message
@@ -104,6 +102,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
 
 /**
  * 构建发送给 API 的消息数组
+ * AI 被告知可以使用 [image: 描述] 和 [voice: 描述] 格式发送特殊消息
  */
 export async function buildApiMessages(
   sessionId: string,
@@ -131,6 +130,14 @@ export async function buildApiMessages(
     systemPrompt += `\n\n[用户信息] ${personaDescription}`
   }
 
+  // 告诉 AI 特殊消息格式
+  systemPrompt += `\n\n[消息格式说明]
+你可以在回复中使用以下特殊格式来发送多媒体消息：
+- 发送图片：[image: 图片的描述内容]
+- 发送语音：[voice: 语音的内容]
+用户也会使用这些格式向你发送图片或语音，请正常理解并回应。
+你可以在一条回复中混合使用普通文字和特殊格式。`
+
   if (systemPrompt) {
     apiMessages.push({ role: 'system', content: systemPrompt })
   }
@@ -139,14 +146,18 @@ export async function buildApiMessages(
   for (const msg of messages) {
     if (msg.role === 'system') continue
 
-    let content = msg.content
+    let content = msg.content || ''
 
-    // 如果有媒体附件，把描述拼入内容
+    // 如果有媒体附件，转换成特殊格式
     if (msg.media) {
       if (msg.media.type === 'image') {
-        content += `\n[用户发送了一张图片：${msg.media.description}]`
+        content = content
+          ? `${content}\n[image: ${msg.media.description}]`
+          : `[image: ${msg.media.description}]`
       } else if (msg.media.type === 'voice') {
-        content += `\n[用户发送了一条语音：${msg.media.description}]`
+        content = content
+          ? `${content}\n[voice: ${msg.media.description}]`
+          : `[voice: ${msg.media.description}]`
       }
     }
 
@@ -157,6 +168,51 @@ export async function buildApiMessages(
   }
 
   return apiMessages
+}
+
+/**
+ * 解析 AI 回复中的特殊消息标记
+ * 返回一个或多个消息片段
+ */
+export interface ParsedSegment {
+  type: 'text' | 'image' | 'voice'
+  content: string
+}
+
+export function parseAiReply(raw: string): ParsedSegment[] {
+  const segments: ParsedSegment[] = []
+  const regex = /\[(image|voice):\s*([^\]]+)\]/g
+
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+
+  while ((match = regex.exec(raw)) !== null) {
+    // 前面的文字
+    const before = raw.substring(lastIndex, match.index).trim()
+    if (before) {
+      segments.push({ type: 'text', content: before })
+    }
+
+    segments.push({
+      type: match[1] as 'image' | 'voice',
+      content: match[2].trim()
+    })
+
+    lastIndex = match.index + match[0].length
+  }
+
+  // 剩余文字
+  const remaining = raw.substring(lastIndex).trim()
+  if (remaining) {
+    segments.push({ type: 'text', content: remaining })
+  }
+
+  // 如果没有匹配到任何特殊格式，返回原文
+  if (segments.length === 0) {
+    segments.push({ type: 'text', content: raw })
+  }
+
+  return segments
 }
 
 /**
@@ -191,11 +247,10 @@ export async function callApi(
 
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
-    throw new Error(`API 请求失败：HTTP ${response.status} ${errorText}`)
+    throw new Error(`HTTP ${response.status}${errorText ? ': ' + errorText.substring(0, 200) : ''}`)
   }
 
   const data = await response.json()
-
   const content = data.choices?.[0]?.message?.content
 
   if (!content) {
@@ -206,18 +261,37 @@ export async function callApi(
 }
 
 /**
- * 发送消息并获取 AI 回复（完整流程）
+ * 发送消息并获取 AI 回复
+ * 返回一组消息（因为 AI 可能发送多条含特殊格式的消息）
  */
 export async function sendAndGetReply(
   sessionId: string,
   characterId: string,
   personaDescription: string
-): Promise<Message> {
+): Promise<Message[]> {
   const character = await db.characters.get(characterId)
   const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
   const replyContent = await callApi(apiMessages)
-  const replyMessage = await addMessage(sessionId, 'assistant', replyContent)
-  return replyMessage
+
+  // 解析 AI 回复
+  const segments = parseAiReply(replyContent)
+  const resultMessages: Message[] = []
+
+  for (const segment of segments) {
+    if (segment.type === 'text') {
+      const msg = await addMessage(sessionId, 'assistant', segment.content)
+      resultMessages.push(msg)
+    } else {
+      const msg = await addMessage(sessionId, 'assistant', '', {
+        type: segment.type,
+        description: segment.content,
+        url: ''
+      })
+      resultMessages.push(msg)
+    }
+  }
+
+  return resultMessages
 }
 
 /**
@@ -228,10 +302,7 @@ export async function rerollMessage(
   sessionId: string,
   characterId: string,
   personaDescription: string
-): Promise<Message> {
-  // 删掉旧消息
+): Promise<Message[]> {
   await deleteMessage(messageId)
-
-  // 重新请求
   return await sendAndGetReply(sessionId, characterId, personaDescription)
 }

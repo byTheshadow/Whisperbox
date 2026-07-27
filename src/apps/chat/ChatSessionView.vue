@@ -1,6 +1,6 @@
 <template>
   <div class="chat-session-container">
-    <!-- 顶部栏 -->
+    <!-- 顶部栏（固定） -->
     <header class="chat-header">
       <button class="header-btn" type="button" @click="$router.push('/chat')">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -22,15 +22,14 @@
         </svg>
       </button>
 
-      <!-- 会话菜单 -->
       <Transition name="fade">
-        <div v-if="showSessionMenu" class="session-menu" @click.self="showSessionMenu = false">
+        <div v-if="showSessionMenu" class="session-menu">
           <button class="menu-item danger" @click="handleDeleteSession">删除对话</button>
         </div>
       </Transition>
     </header>
 
-    <!-- 消息列表 -->
+    <!-- 消息列表（滚动区域） -->
     <div ref="messageListRef" class="message-list">
       <div
         v-for="msg in messages"
@@ -53,6 +52,7 @@
           <div
             :class="['msg-bubble', msg.role, { 'media-bubble': msg.media }]"
             @contextmenu.prevent="openContextMenu($event, msg)"
+            @click.long="openContextMenu($event, msg)"
           >
             <!-- 假图片 -->
             <div v-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
@@ -61,10 +61,8 @@
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
-              <p v-if="revealedMedia.has(msg.id)" class="media-description">
-                {{ msg.media.description }}
-              </p>
-              <p v-else class="media-tap-hint">点击查看图片</p>
+              <p v-if="revealedMedia.has(msg.id)" class="media-description">{{ msg.media.description }}</p>
+              <p v-else class="media-tap-hint">点击查看</p>
             </div>
 
             <!-- 假语音 -->
@@ -76,7 +74,6 @@
                 <div class="voice-wave">
                   <span></span><span></span><span></span><span></span><span></span>
                 </div>
-                <span class="voice-duration">0:{{ String(Math.floor(Math.random() * 50 + 3)).padStart(2, '0') }}</span>
               </div>
               <p v-else class="media-description">{{ msg.media.description }}</p>
             </div>
@@ -90,7 +87,7 @@
         </div>
       </div>
 
-      <!-- AI 正在输入 -->
+      <!-- 打字指示器 -->
       <div v-if="aiLoading" class="message-row assistant">
         <div class="msg-avatar">
           <img v-if="character?.avatar" :src="character.avatar" alt="" />
@@ -98,19 +95,22 @@
         </div>
         <div class="msg-body">
           <div class="msg-bubble assistant typing">
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
-            <span class="typing-dot"></span>
+            <span class="typing-text">{{ typingIndicatorText }}</span>
+            <span class="typing-dots">
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+              <span class="typing-dot"></span>
+            </span>
           </div>
         </div>
       </div>
     </div>
 
-    <!-- 引用预览 -->
+    <!-- 引用预览条 -->
     <div v-if="quotedMessage" class="quote-bar">
       <div class="quote-bar-content">
         <span class="quote-bar-label">引用</span>
-        <span class="quote-bar-text">{{ quotedMessage.content.substring(0, 50) }}</span>
+        <span class="quote-bar-text">{{ quotedMessage.content?.substring(0, 50) || '[媒体消息]' }}</span>
       </div>
       <button class="quote-bar-close" type="button" @click="quotedMessage = null">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -120,7 +120,7 @@
       </button>
     </div>
 
-    <!-- 输入区 -->
+    <!-- 输入区（固定） -->
     <div class="input-area">
       <div class="input-tools">
         <button class="tool-btn" type="button" title="发送图片" @click="showImageInput = true">
@@ -224,20 +224,17 @@
       </Transition>
     </Teleport>
 
-    <!-- 右键菜单 -->
+    <!-- 右键 / 长按菜单 -->
     <Teleport to="body">
       <Transition name="fade">
         <div
           v-if="contextMenu.visible"
           class="context-menu"
           :style="{ top: contextMenu.y + 'px', left: contextMenu.x + 'px' }"
-          @click.self="closeContextMenu"
         >
           <button class="ctx-item" @click="handleQuote">引用</button>
           <button class="ctx-item" @click="handleWithdraw">撤回</button>
-          <button v-if="contextMenu.message?.role === 'assistant'" class="ctx-item" @click="handleReroll">
-            重新生成
-          </button>
+          <button v-if="contextMenu.message?.role === 'assistant'" class="ctx-item" @click="handleReroll">重新生成</button>
         </div>
       </Transition>
     </Teleport>
@@ -245,7 +242,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, watch } from 'vue'
+import { ref, reactive, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { db, type Message, type Character } from '@/core/db'
 import {
@@ -282,6 +279,14 @@ const contextMenu = reactive({
   x: 0,
   y: 0,
   message: null as Message | null
+})
+
+// 打字指示器文案（可自定义）
+const typingIndicatorText = computed(() => {
+  if (character.value?.name) {
+    return `${character.value.name}正在输入`
+  }
+  return '对方正在输入'
 })
 
 onMounted(async () => {
@@ -322,22 +327,17 @@ async function sendBubble() {
   const text = inputText.value.trim()
   if (!text) return
 
-  let content = text
+  const msg = await addMessage(sessionId, 'user', text)
+  const display: DisplayMessage = { ...msg }
 
-  // 如果有引用
   if (quotedMessage.value) {
-    const msg = await addMessage(sessionId, 'user', content)
-    const display: DisplayMessage = {
-      ...msg,
-      quotedContent: quotedMessage.value.content.substring(0, 80)
-    }
-    messages.value.push(display)
+    display.quotedContent = quotedMessage.value.content
+      ? quotedMessage.value.content.substring(0, 80)
+      : '[媒体消息]'
     quotedMessage.value = null
-  } else {
-    const msg = await addMessage(sessionId, 'user', content)
-    messages.value.push({ ...msg })
   }
 
+  messages.value.push(display)
   inputText.value = ''
   resetTextarea()
   scrollToBottom()
@@ -345,7 +345,6 @@ async function sendBubble() {
 
 // 发送给 AI
 async function sendToAi() {
-  // 如果输入框有内容，先发送为气泡
   if (inputText.value.trim()) {
     await sendBubble()
   }
@@ -361,22 +360,38 @@ async function sendToAi() {
       ? await db.personas.get(session.personaId)
       : null
 
-    const replyMsg = await sendAndGetReply(
+    const replyMessages = await sendAndGetReply(
       sessionId,
       session?.characterId || '',
       persona?.description || ''
     )
 
-    messages.value.push({ ...replyMsg })
+    for (const msg of replyMessages) {
+      messages.value.push({ ...msg })
+    }
+
     scrollToBottom()
   } catch (err: any) {
-    // 把错误作为系统消息显示
-    const errorMsg = await addMessage(sessionId, 'system', `[错误] ${err.message}`)
+    // 安抚性提示 + 具体错误
+    const comfortText = getErrorComfort()
+    const errorContent = `${comfortText}\n\n[具体错误] ${err.message}`
+    const errorMsg = await addMessage(sessionId, 'system', errorContent)
     messages.value.push({ ...errorMsg })
     scrollToBottom()
   } finally {
     aiLoading.value = false
   }
+}
+
+// 安抚性错误提示
+function getErrorComfort(): string {
+  const comforts = [
+    '连接似乎出了点问题，不要担心，让我再试试…',
+    '通信暂时中断了，稍后重新尝试即可。',
+    '信号不太好的样子，请检查网络或 API 配置。',
+    '传输过程遇到了阻碍，也许只是暂时的。',
+  ]
+  return comforts[Math.floor(Math.random() * comforts.length)]
 }
 
 // 假图片
@@ -421,11 +436,17 @@ function toggleMediaReveal(msgId: string) {
   }
 }
 
-// 右键菜单
-function openContextMenu(e: MouseEvent, msg: Message) {
+// 右键菜单 — 对所有消息生效（user + assistant）
+function openContextMenu(e: MouseEvent | TouchEvent, msg: Message) {
+  // 不对 system 消息弹菜单
+  if (msg.role === 'system') return
+
+  const clientX = 'touches' in e ? e.touches[0]?.clientX || 0 : e.clientX
+  const clientY = 'touches' in e ? e.touches[0]?.clientY || 0 : e.clientY
+
   contextMenu.visible = true
-  contextMenu.x = Math.min(e.clientX, window.innerWidth - 140)
-  contextMenu.y = Math.min(e.clientY, window.innerHeight - 120)
+  contextMenu.x = Math.min(clientX, window.innerWidth - 140)
+  contextMenu.y = Math.min(clientY, window.innerHeight - 120)
   contextMenu.message = msg
 }
 
@@ -434,7 +455,7 @@ function closeContextMenu() {
   contextMenu.message = null
 }
 
-// 引用
+// 引用 — user 和 assistant 消息都可以引用
 function handleQuote() {
   if (contextMenu.message) {
     quotedMessage.value = contextMenu.message
@@ -462,7 +483,6 @@ async function handleReroll() {
   aiLoading.value = true
 
   try {
-    // 从显示列表删掉
     messages.value = messages.value.filter(m => m.id !== msgId)
 
     const session = await db.chatSessions.get(sessionId)
@@ -470,17 +490,22 @@ async function handleReroll() {
       ? await db.personas.get(session.personaId)
       : null
 
-    const newMsg = await rerollMessage(
+    const newMessages = await rerollMessage(
       msgId,
       sessionId,
       session?.characterId || '',
       persona?.description || ''
     )
 
-    messages.value.push({ ...newMsg })
+    for (const msg of newMessages) {
+      messages.value.push({ ...msg })
+    }
+
     scrollToBottom()
   } catch (err: any) {
-    const errorMsg = await addMessage(sessionId, 'system', `[重新生成失败] ${err.message}`)
+    const comfortText = getErrorComfort()
+    const errorContent = `${comfortText}\n\n[具体错误] ${err.message}`
+    const errorMsg = await addMessage(sessionId, 'system', errorContent)
     messages.value.push({ ...errorMsg })
     scrollToBottom()
   } finally {
@@ -510,7 +535,7 @@ function formatMsgTime(timestamp: number): string {
   return d.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
 }
 
-// 点击页面其他地方关闭右键菜单
+// 点击页面关闭右键菜单
 watch(() => contextMenu.visible, (visible) => {
   if (visible) {
     const handler = () => {
@@ -527,12 +552,14 @@ watch(() => contextMenu.visible, (visible) => {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh;
   max-width: 600px;
   margin: 0 auto;
   position: relative;
+  overflow: hidden;
 }
 
-/* Header */
+/* Header — 固定 */
 .chat-header {
   display: flex;
   align-items: center;
@@ -540,6 +567,7 @@ watch(() => contextMenu.visible, (visible) => {
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
+  flex-shrink: 0;
 }
 
 .header-center {
@@ -595,7 +623,6 @@ watch(() => contextMenu.visible, (visible) => {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Session menu */
 .session-menu {
   position: absolute;
   top: 54px;
@@ -629,10 +656,11 @@ watch(() => contextMenu.visible, (visible) => {
   color: #e57373;
 }
 
-/* Message List */
+/* Message List — 滚动区域 */
 .message-list {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -697,7 +725,7 @@ watch(() => contextMenu.visible, (visible) => {
   align-items: flex-start;
 }
 
-/* Quote */
+/* Quote in bubble */
 .msg-quote {
   padding: 4px 10px;
   font-size: 12px;
@@ -719,6 +747,7 @@ watch(() => contextMenu.visible, (visible) => {
   word-break: break-word;
   position: relative;
   cursor: default;
+  user-select: text;
 }
 
 .msg-bubble.user {
@@ -733,11 +762,12 @@ watch(() => contextMenu.visible, (visible) => {
 }
 
 .msg-bubble.system {
-  background: rgba(229, 115, 115, 0.1);
-  border: 1px solid rgba(229, 115, 115, 0.2);
+  background: rgba(229, 115, 115, 0.08);
+  border: 1px solid rgba(229, 115, 115, 0.15);
   border-radius: 10px;
   font-size: 13px;
   color: rgba(245, 245, 245, 0.7);
+  white-space: pre-wrap;
 }
 
 .msg-text {
@@ -750,16 +780,28 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.3);
 }
 
-/* Typing */
+/* Typing indicator */
 .msg-bubble.typing {
   display: flex;
-  gap: 4px;
-  padding: 14px 18px;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+}
+
+.typing-text {
+  font-size: 13px;
+  color: rgba(245, 245, 245, 0.5);
+  font-style: italic;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 3px;
 }
 
 .typing-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: rgba(245, 245, 245, 0.4);
   animation: typingBounce 1.4s infinite ease-in-out both;
@@ -775,7 +817,7 @@ watch(() => contextMenu.visible, (visible) => {
 
 /* Media */
 .media-bubble {
-  padding: 0;
+  padding: 0 !important;
   overflow: hidden;
 }
 
@@ -833,9 +875,8 @@ watch(() => contextMenu.visible, (visible) => {
 .voice-wave span {
   display: block;
   width: 3px;
-  height: 12px;
-  background: rgba(245, 245, 245, 0.3);
   border-radius: 2px;
+  background: rgba(245, 245, 245, 0.3);
   animation: voiceWave 1s infinite ease-in-out;
 }
 
@@ -850,11 +891,6 @@ watch(() => contextMenu.visible, (visible) => {
   50% { transform: scaleY(1.2); }
 }
 
-.voice-duration {
-  font-size: 12px;
-  color: rgba(245, 245, 245, 0.4);
-}
-
 /* Quote bar */
 .quote-bar {
   display: flex;
@@ -862,6 +898,7 @@ watch(() => contextMenu.visible, (visible) => {
   padding: 8px 16px;
   background: rgba(255, 255, 255, 0.04);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .quote-bar-content {
@@ -903,10 +940,11 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.9);
 }
 
-/* Input area */
+/* Input area — 固定底部 */
 .input-area {
   padding: 10px 16px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
 }
 
 .input-tools {
