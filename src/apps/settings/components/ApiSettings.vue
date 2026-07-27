@@ -10,7 +10,6 @@
         type="text"
         class="form-input"
         placeholder="https://api.openai.com/v1"
-        @blur="saveSettings"
       />
       <p class="form-hint">OpenAI 兼容端点，支持 OpenRouter、DeepSeek 等</p>
     </div>
@@ -23,9 +22,8 @@
           :type="showApiKey ? 'text' : 'password'"
           class="form-input"
           placeholder="sk-..."
-          @blur="saveSettings"
         />
-        <button class="input-action" @click="showApiKey = !showApiKey">
+        <button class="input-action" type="button" @click="showApiKey = !showApiKey">
           <svg v-if="showApiKey" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/>
             <line x1="1" y1="1" x2="23" y2="23" stroke-linecap="round"/>
@@ -41,28 +39,51 @@
     <div class="form-group">
       <label class="form-label">模型</label>
       <div class="input-with-action">
-        <select v-model="form.selectedModel" class="form-input form-select" @change="saveSettings">
+        <select v-model="form.selectedModel" class="form-input form-select">
           <option value="" disabled>选择模型</option>
           <option v-for="model in form.availableModels" :key="model" :value="model">
             {{ model }}
           </option>
         </select>
-        <button 
-          class="input-action fetch-btn" 
+
+        <button
+          class="input-action fetch-btn"
+          type="button"
           :disabled="fetchingModels || !form.apiBaseUrl || !form.apiKey"
           @click="fetchModels"
         >
-          <svg 
-            :class="['fetch-icon', { spinning: fetchingModels }]" 
-            width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+          <svg
+            :class="['fetch-icon', { spinning: fetchingModels }]"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
           >
             <path d="M23 4v6h-6M1 20v-6h6" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
       </div>
+
       <p v-if="fetchError" class="form-error">{{ fetchError }}</p>
       <p v-else class="form-hint">点击刷新按钮获取可用模型列表</p>
+    </div>
+
+    <div class="actions">
+      <button class="save-btn" type="button" :disabled="saving" @click="saveSettings">
+        {{ saving ? '保存中...' : '保存设置' }}
+      </button>
+
+      <button
+        class="secondary-btn"
+        type="button"
+        :disabled="fetchingModels || !form.apiBaseUrl || !form.apiKey"
+        @click="fetchModels"
+      >
+        {{ fetchingModels ? '获取中...' : '刷新模型列表' }}
+      </button>
     </div>
 
     <div v-if="saveStatus" class="save-status">
@@ -75,9 +96,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { db } from '@/core/db'
 
-
 const showApiKey = ref(false)
 const fetchingModels = ref(false)
+const saving = ref(false)
 const fetchError = ref('')
 const saveStatus = ref('')
 
@@ -99,6 +120,9 @@ onMounted(async () => {
 })
 
 async function saveSettings() {
+  saving.value = true
+  fetchError.value = ''
+
   try {
     await db.appSettings.update('global', {
       apiBaseUrl: form.apiBaseUrl,
@@ -107,10 +131,16 @@ async function saveSettings() {
       availableModels: form.availableModels,
       updatedAt: Date.now()
     })
+
     saveStatus.value = '已保存'
-    setTimeout(() => { saveStatus.value = '' }, 1500)
+    setTimeout(() => {
+      saveStatus.value = ''
+    }, 1500)
   } catch (e) {
     console.error('保存设置失败:', e)
+    saveStatus.value = '保存失败'
+  } finally {
+    saving.value = false
   }
 }
 
@@ -124,7 +154,7 @@ async function fetchModels() {
     const baseUrl = form.apiBaseUrl.replace(/\/+$/, '')
     const res = await fetch(`${baseUrl}/models`, {
       headers: {
-        'Authorization': `Bearer ${form.apiKey}`
+        Authorization: `Bearer ${form.apiKey}`
       }
     })
 
@@ -145,7 +175,7 @@ async function fetchModels() {
 
     await saveSettings()
   } catch (e: any) {
-    fetchError.value = e.message || '获取模型列表失败'
+    fetchError.value = e?.message || '获取模型列表失败'
   } finally {
     fetchingModels.value = false
   }
@@ -262,9 +292,47 @@ async function fetchModels() {
   animation: spin 1s linear infinite;
 }
 
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.save-btn,
+.secondary-btn {
+  padding: 10px 16px;
+  font-family: inherit;
+  font-size: 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.save-btn {
+  color: #080808;
+  background: rgba(245, 245, 245, 0.92);
+  border: none;
+}
+
+.save-btn:hover:not(:disabled) {
+  background: #fff;
+}
+
+.secondary-btn {
+  color: rgba(245, 245, 245, 0.7);
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.secondary-btn:hover:not(:disabled) {
+  color: rgba(245, 245, 245, 0.95);
+  border-color: rgba(255, 255, 255, 0.24);
+}
+
+.save-btn:disabled,
+.secondary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .form-hint {
@@ -283,5 +351,15 @@ async function fetchModels() {
   font-size: 13px;
   color: rgba(129, 199, 132, 0.9);
   margin-top: 16px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

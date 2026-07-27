@@ -19,7 +19,7 @@
           <div class="persona-name">{{ realUserPersona.name }}</div>
           <div class="persona-desc">{{ realUserPersona.description || '暂无描述' }}</div>
         </div>
-        <button class="persona-edit-btn" @click="editPersona(realUserPersona)">
+        <button class="persona-edit-btn" type="button" @click="editPersona(realUserPersona)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
@@ -27,7 +27,7 @@
         </button>
       </div>
 
-      <button v-else class="add-persona-btn" @click="createPersona(true)">
+      <button v-else class="add-persona-btn" type="button" @click="createPersona(true)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
           <line x1="12" y1="5" x2="12" y2="19" stroke-linecap="round"/>
           <line x1="5" y1="12" x2="19" y2="12" stroke-linecap="round"/>
@@ -44,26 +44,29 @@
       </div>
 
       <div class="persona-list">
-        <div 
-          v-for="persona in roleplayPersonas" 
-          :key="persona.id" 
+        <div
+          v-for="persona in roleplayPersonas"
+          :key="persona.id"
           :class="['persona-card', { default: persona.isDefault }]"
         >
           <div class="persona-avatar" @click="editPersona(persona)">
             <img v-if="persona.avatar" :src="persona.avatar" alt="" />
             <span v-else class="avatar-placeholder">{{ persona.name.charAt(0) }}</span>
           </div>
+
           <div class="persona-info">
             <div class="persona-name">
               {{ persona.name }}
               <span v-if="persona.isDefault" class="default-badge">默认</span>
             </div>
-                        <div class="persona-desc">{{ persona.description || '暂无描述' }}</div>
+            <div class="persona-desc">{{ persona.description || '暂无描述' }}</div>
           </div>
+
           <div class="persona-actions">
-            <button 
-              v-if="!persona.isDefault" 
+            <button
+              v-if="!persona.isDefault"
               class="persona-action-btn"
+              type="button"
               title="设为默认"
               @click="setDefault(persona.id)"
             >
@@ -72,13 +75,15 @@
                 <polyline points="22 4 12 14.01 9 11.01" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <button class="persona-action-btn" title="编辑" @click="editPersona(persona)">
+
+            <button class="persona-action-btn" type="button" title="编辑" @click="editPersona(persona)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
             </button>
-            <button class="persona-action-btn danger" title="删除" @click="deletePersona(persona.id)">
+
+            <button class="persona-action-btn danger" type="button" title="删除" @click="deletePersona(persona.id)">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <polyline points="3 6 5 6 21 6" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -87,7 +92,7 @@
           </div>
         </div>
 
-        <button class="add-persona-btn" @click="createPersona(false)">
+        <button class="add-persona-btn" type="button" @click="createPersona(false)">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <line x1="12" y1="5" x2="12" y2="19" stroke-linecap="round"/>
             <line x1="5" y1="12" x2="19" y2="12" stroke-linecap="round"/>
@@ -115,8 +120,50 @@
             </div>
 
             <div class="form-group">
+              <label class="form-label">身份类型</label>
+              <div class="type-switch">
+                <button
+                  type="button"
+                  class="mode-btn"
+                  :class="{ active: editForm.isRealUser }"
+                  @click="editForm.isRealUser = true"
+                >
+                  真实身份
+                </button>
+                <button
+                  type="button"
+                  class="mode-btn"
+                  :class="{ active: !editForm.isRealUser }"
+                  @click="editForm.isRealUser = false"
+                >
+                  角色扮演身份
+                </button>
+              </div>
+            </div>
+
+            <div class="form-group">
               <label class="form-label">头像</label>
-              <div class="avatar-upload">
+
+              <div class="avatar-mode-switch">
+                <button
+                  type="button"
+                  class="mode-btn"
+                  :class="{ active: avatarMode === 'upload' }"
+                  @click="avatarMode = 'upload'"
+                >
+                  上传
+                </button>
+                <button
+                  type="button"
+                  class="mode-btn"
+                  :class="{ active: avatarMode === 'url' }"
+                  @click="avatarMode = 'url'"
+                >
+                  URL
+                </button>
+              </div>
+
+              <div v-if="avatarMode === 'upload'" class="avatar-upload">
                 <div class="avatar-preview" @click="triggerAvatarUpload">
                   <img v-if="editForm.avatar" :src="editForm.avatar" alt="" />
                   <span v-else class="avatar-placeholder-large">
@@ -127,6 +174,7 @@
                     </svg>
                   </span>
                 </div>
+
                 <input
                   ref="avatarInput"
                   type="file"
@@ -134,9 +182,20 @@
                   class="hidden-input"
                   @change="handleAvatarChange"
                 />
-                <button v-if="editForm.avatar" class="clear-avatar-btn" @click="editForm.avatar = ''">
+
+                <button v-if="editForm.avatar" class="clear-avatar-btn" type="button" @click="editForm.avatar = ''">
                   清除
                 </button>
+              </div>
+
+              <div v-else class="url-input-wrap">
+                <input
+                  v-model="editForm.avatar"
+                  type="text"
+                  class="form-input"
+                  placeholder="输入头像图片 URL"
+                />
+                <p class="form-hint">支持 http / https 图片地址</p>
               </div>
             </div>
 
@@ -154,13 +213,16 @@
             </div>
 
             <div class="modal-actions">
-              <button class="modal-btn secondary" @click="closeModal">取消</button>
-              <button 
-                class="modal-btn primary" 
-                :disabled="!editForm.name.trim()"
+              <button class="modal-btn secondary" type="button" @click="closeModal">
+                取消
+              </button>
+              <button
+                class="modal-btn primary"
+                type="button"
+                :disabled="!editForm.name.trim() || saving"
                 @click="savePersona"
               >
-                保存
+                {{ saving ? '保存中...' : '保存身份' }}
               </button>
             </div>
           </div>
@@ -178,6 +240,8 @@ const personas = ref<Persona[]>([])
 const showModal = ref(false)
 const editingPersona = ref<Persona | null>(null)
 const avatarInput = ref<HTMLInputElement | null>(null)
+const saving = ref(false)
+const avatarMode = ref<'upload' | 'url'>('upload')
 
 const editForm = reactive({
   name: '',
@@ -197,12 +261,19 @@ async function loadPersonas() {
   personas.value = await db.personas.toArray()
 }
 
+function detectAvatarMode(avatar: string) {
+  if (!avatar) return 'upload'
+  if (avatar.startsWith('http://') || avatar.startsWith('https://')) return 'url'
+  return 'upload'
+}
+
 function createPersona(isRealUser: boolean) {
   editingPersona.value = null
   editForm.name = ''
   editForm.avatar = ''
   editForm.description = ''
   editForm.isRealUser = isRealUser
+  avatarMode.value = 'upload'
   showModal.value = true
 }
 
@@ -212,6 +283,7 @@ function editPersona(persona: Persona) {
   editForm.avatar = persona.avatar
   editForm.description = persona.description
   editForm.isRealUser = persona.isRealUser
+  avatarMode.value = detectAvatarMode(persona.avatar)
   showModal.value = true
 }
 
@@ -238,43 +310,49 @@ function handleAvatarChange(e: Event) {
 async function savePersona() {
   if (!editForm.name.trim()) return
 
-  const now = Date.now()
+  saving.value = true
+  try {
+    const now = Date.now()
 
-  if (editingPersona.value) {
-    // 更新
-    await db.personas.update(editingPersona.value.id, {
-      name: editForm.name.trim(),
-      avatar: editForm.avatar,
-      description: editForm.description.trim()
-    })
-  } else {
-    // 新建
-    const isFirstRoleplay = !editForm.isRealUser && roleplayPersonas.value.length === 0
+    if (editingPersona.value) {
+      await db.personas.update(editingPersona.value.id, {
+        name: editForm.name.trim(),
+        avatar: editForm.avatar.trim(),
+        description: editForm.description.trim(),
+        isRealUser: editForm.isRealUser
+      })
+    } else {
+      const isFirstRoleplay = !editForm.isRealUser && roleplayPersonas.value.length === 0
 
-    await db.personas.add({
-      id: crypto.randomUUID(),
-      name: editForm.name.trim(),
-      avatar: editForm.avatar,
-      description: editForm.description.trim(),
-      isDefault: isFirstRoleplay, // 第一个角色扮演身份自动设为默认
-      isRealUser: editForm.isRealUser,
-      createdAt: now
-    })
+      await db.personas.add({
+        id: crypto.randomUUID(),
+        name: editForm.name.trim(),
+        avatar: editForm.avatar.trim(),
+        description: editForm.description.trim(),
+        isDefault: isFirstRoleplay,
+        isRealUser: editForm.isRealUser,
+        createdAt: now
+      })
+    }
+
+    await loadPersonas()
+    closeModal()
+  } catch (e) {
+    console.error('保存身份失败:', e)
+  } finally {
+    saving.value = false
   }
-
-  await loadPersonas()
-  closeModal()
 }
 
 async function setDefault(id: string) {
-  // 先把所有非真实用户的 isDefault 设为 false
   const allRoleplay = personas.value.filter(p => !p.isRealUser)
+
   for (const p of allRoleplay) {
     if (p.isDefault) {
       await db.personas.update(p.id, { isDefault: false })
     }
   }
-  // 再把目标设为 true
+
   await db.personas.update(id, { isDefault: true })
   await loadPersonas()
 }
@@ -326,6 +404,7 @@ async function deletePersona(id: string) {
   align-items: baseline;
   gap: 12px;
   margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
 .persona-section-title {
@@ -407,6 +486,7 @@ async function deletePersona(id: string) {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .default-badge {
@@ -429,6 +509,7 @@ async function deletePersona(id: string) {
 .persona-actions {
   display: flex;
   gap: 4px;
+  flex-shrink: 0;
 }
 
 .persona-action-btn,
@@ -495,7 +576,7 @@ async function deletePersona(id: string) {
 
 .modal-content {
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   padding: 28px;
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -551,10 +632,41 @@ async function deletePersona(id: string) {
   margin-top: 6px;
 }
 
+.type-switch,
+.avatar-mode-switch {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mode-btn {
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  color: rgba(245, 245, 245, 0.55);
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.mode-btn:hover {
+  color: rgba(245, 245, 245, 0.85);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+.mode-btn.active {
+  color: #080808;
+  background: rgba(245, 245, 245, 0.92);
+  border-color: transparent;
+}
+
 .avatar-upload {
   display: flex;
   align-items: center;
   gap: 12px;
+  flex-wrap: wrap;
 }
 
 .avatar-preview {
@@ -566,6 +678,7 @@ async function deletePersona(id: string) {
   border: 1px solid rgba(255, 255, 255, 0.1);
   cursor: pointer;
   transition: border-color 0.2s ease;
+  flex-shrink: 0;
 }
 
 .avatar-preview:hover {
@@ -605,6 +718,10 @@ async function deletePersona(id: string) {
 .clear-avatar-btn:hover {
   color: #e57373;
   border-color: rgba(229, 115, 115, 0.3);
+}
+
+.url-input-wrap {
+  margin-top: 12px;
 }
 
 .modal-actions {
