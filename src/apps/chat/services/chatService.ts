@@ -110,6 +110,7 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await db.chatSessions.delete(sessionId)
 }
 
+
 /**
  * 构建现实时间上下文
  */
@@ -145,6 +146,45 @@ function buildRealTimeContext(): string {
 
 你可以自然地感知当前现实时间，例如早安、晚安、深夜关心、日期相关提醒等。
 不要每条消息都机械地提及时间，只有在语境自然或有帮助时使用。`
+}
+
+
+function buildProactiveContext(params: {
+  mode: 'daily' | 'roleplay'
+  characterName: string
+  characterPersonality: string
+  conversationLength: number
+}): string {
+  const { mode, characterName, characterPersonality, conversationLength } = params
+
+  const modeRule =
+    mode === 'daily'
+      ? `日常模式下，你主动发消息时应像：
+- 简短问候
+- 关心近况
+- 轻微提醒
+- 像短信一样自然、克制、不过度戏剧化`
+      : `RP 模式下，你主动发消息时应像：
+- 剧情推进
+- 场景触发
+- 角色来信
+- 事件开端或转折
+- 更具叙事感，但不要冗长空泛`
+
+  return `[主动消息约束]
+角色：${characterName}
+角色性格：${characterPersonality || '未提供'}
+当前对话长度：${conversationLength}
+
+你必须按角色性格主动发消息，不能违背人设。
+${modeRule}
+
+额外要求：
+- 如果当前对话太短，不要硬主动
+- 如果最近消息非常密集，不要连续刷屏
+- 主动消息要像“角色真的想联系对方”
+- 不要提到系统、规则、触发器
+- 可以非常自然地使用表情包、语音、图片或文字，但不要滥用`
 }
 
 /**
@@ -386,24 +426,32 @@ export async function sendAndGetReply(
  * 主动触发指令直接加入 API 消息数组，而不是写入数据库 system 消息，
  * 避免被 buildApiMessages 中跳过 system 历史消息的逻辑过滤。
  */
+
 export async function sendProactiveReply(
   sessionId: string,
   characterId: string,
-  personaDescription: string
+  personaDescription: string,
+  options?: {
+    mode?: 'daily' | 'roleplay'
+    conversationLength?: number
+  }
 ): Promise<Message[]> {
   const character = await db.characters.get(characterId)
   const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
 
+  const session = await db.chatSessions.get(sessionId)
+
   apiMessages.push({
     role: 'system',
-    content: `[主动消息触发]
-现在请由角色主动发来一条自然的消息。
-要求：
-- 不要说“系统让我发消息”
-- 不要提到“主动消息触发”
-- 结合当前现实时间、双方关系、角色性格
-- 日常模式可以更像短信问候或关心
-- RP 模式可以像剧情内的来信、敲门、传讯或场景推进`
+    content: [
+      buildProactiveContext({
+        mode: options?.mode || session?.mode || 'roleplay',
+        characterName: character?.name || '角色',
+        characterPersonality: character?.personality || '',
+        conversationLength: options?.conversationLength || 0
+      }),
+      buildRealTimeContext()
+    ].join('\n\n')
   })
 
   const replyContent = await callApi(apiMessages)
@@ -428,6 +476,7 @@ export async function sendProactiveReply(
 
   return resultMessages
 }
+
 
 /**
  * 重新生成某条 AI 消息（删掉旧的，重新请求）

@@ -259,66 +259,120 @@
       </Transition>
     </Teleport>
 
-    <!-- 主动消息设置 -->
-    <Teleport to="body">
-      <Transition name="fade">
-        <div v-if="showProactiveModal" class="modal-overlay" @click.self="showProactiveModal = false">
-          <div class="mini-modal">
-            <h4 class="mini-modal-title">主动消息设置</h4>
+  <!-- 主动消息设置 -->
+<Teleport to="body">
+  <Transition name="fade">
+    <div v-if="showProactiveModal" class="modal-overlay" @click.self="showProactiveModal = false">
+      <div class="mini-modal">
+        <h4 class="mini-modal-title">主动消息设置</h4>
 
-            <label class="setting-row">
-              <span>
-                <strong>允许角色主动发消息</strong>
-                <small>页面打开时，角色可以根据频率主动传讯。</small>
-              </span>
-              <input v-model="proactiveForm.enabled" type="checkbox" />
-            </label>
+        <label class="setting-row">
+          <span>
+            <strong>允许角色主动发消息</strong>
+            <small>页面打开时，角色可按频率主动传讯。</small>
+          </span>
+          <input v-model="proactiveForm.enabled" type="checkbox" />
+        </label>
 
-            <div class="form-group">
-              <label class="form-label">频率</label>
-              <select v-model.number="proactiveForm.frequencyMinutes" class="form-input">
-                <option :value="30">约每 30 分钟</option>
-                <option :value="60">约每 1 小时</option>
-                <option :value="120">约每 2 小时</option>
-                <option :value="360">约每 6 小时</option>
-                <option :value="720">约每 12 小时</option>
-                <option :value="1440">约每天</option>
-              </select>
-            </div>
+        <label class="setting-row">
+          <span>
+            <strong>允许夜间静默</strong>
+            <small>夜间（23:00–7:00）不主动打扰。</small>
+          </span>
+          <input v-model="proactiveForm.silentNight" type="checkbox" />
+        </label>
 
-            <label class="setting-row">
-              <span>
-                <strong>允许系统通知</strong>
-                <small>浏览器会请求通知权限；PWA/桌面端效果更好。</small>
-              </span>
-              <input v-model="proactiveForm.notify" type="checkbox" />
-            </label>
+        <label class="setting-row">
+          <span>
+            <strong>必须按角色性格触发</strong>
+            <small>主动消息必须符合角色性格。</small>
+          </span>
+          <input v-model="proactiveForm.requirePersonality" type="checkbox" />
+        </label>
 
-            <p class="setting-note">
-              注：静态网页无法保证关闭页面后仍后台运行。若安装为 PWA 或未来使用 Tauri 桌面端，主动通知会更稳定。
-            </p>
+        <label class="setting-row">
+          <span>
+            <strong>允许绘画触发</strong>
+            <small>角色可在合适时使用绘画/图像表达。</small>
+          </span>
+          <input v-model="proactiveForm.allowDrawing" type="checkbox" />
+        </label>
 
-            <div class="mini-modal-actions">
-              <button
-                class="modal-btn secondary"
-                type="button"
-                :disabled="aiLoading"
-                @click="triggerProactiveNow"
-              >
-                立即触发一次
-              </button>
+        <label class="setting-row">
+          <span>
+            <strong>仅在长对话中主动</strong>
+            <small>避免过短对话或连续刷屏。</small>
+          </span>
+          <input v-model="proactiveForm.onlyWhenLongConversation" type="checkbox" />
+        </label>
 
-              <button class="modal-btn secondary" type="button" @click="showProactiveModal = false">
-                取消
-              </button>
-              <button class="modal-btn primary" type="button" @click="saveProactiveSettings">
-                保存
-              </button>
-            </div>
-          </div>
+        <div class="form-group">
+          <label class="form-label">频率</label>
+          <select v-model.number="proactiveForm.frequencyMinutes" class="form-input">
+            <option :value="30">约每 30 分钟</option>
+            <option :value="60">约每 1 小时</option>
+            <option :value="120">约每 2 小时</option>
+            <option :value="360">约每 6 小时</option>
+            <option :value="720">约每 12 小时</option>
+            <option :value="1440">约每天</option>
+          </select>
         </div>
-      </Transition>
-    </Teleport>
+
+        <div class="form-group">
+          <label class="form-label">最少对话消息数</label>
+          <input
+            v-model.number="proactiveForm.minMessageCount"
+            class="form-input"
+            type="number"
+            min="1"
+          />
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">近 1 小时最多消息数</label>
+          <input
+            v-model.number="proactiveForm.maxRecentMessages"
+            class="form-input"
+            type="number"
+            min="0"
+          />
+        </div>
+
+        <label class="setting-row">
+          <span>
+            <strong>允许系统通知</strong>
+            <small>浏览器会请求通知权限。</small>
+          </span>
+          <input v-model="proactiveForm.notify" type="checkbox" />
+        </label>
+
+        <p class="setting-note">
+          注：静态网页无法保证关闭页面后仍后台运行。PWA 安装后或未来 Tauri 桌面端会更稳定。
+        </p>
+
+        <div class="mini-modal-actions">
+          <button
+            class="modal-btn secondary"
+            type="button"
+            :disabled="aiLoading"
+            @click="triggerProactiveNow"
+          >
+            立即触发一次
+          </button>
+
+          <button class="modal-btn secondary" type="button" @click="showProactiveModal = false">
+            取消
+          </button>
+
+          <button class="modal-btn primary" type="button" @click="saveProactiveSettings">
+            保存
+          </button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+
 
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
@@ -577,11 +631,19 @@ const bubbleStyleOptions = [
     description: '弱化气泡背景，适合壁纸'
   }
 ]
+
 const proactiveForm = reactive({
   enabled: false,
   frequencyMinutes: 120,
-  notify: false
+  notify: false,
+  silentNight: true,
+  requirePersonality: true,
+  allowDrawing: false,
+  minMessageCount: 8,
+  maxRecentMessages: 3,
+  onlyWhenLongConversation: true
 })
+
 
 const stickers = ref<StickerItem[]>([])
 const newSticker = reactive({
@@ -641,18 +703,28 @@ onMounted(async () => {
   if (session.value.personaId) {
     userPersona.value = await db.personas.get(session.value.personaId) || null
   }
+wallpaperInput.value = session.value.wallpaper || ''
 
-  wallpaperInput.value = session.value.wallpaper || ''
+proactiveForm.enabled = Boolean(session.value.proactiveEnabled)
+proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
+proactiveForm.notify = Boolean(session.value.proactiveNotify)
 
-  proactiveForm.enabled = Boolean(session.value.proactiveEnabled)
-  proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
-  proactiveForm.notify = Boolean(session.value.proactiveNotify)
+// 下面这些字段用 ?? 保留默认值：
+// 旧会话没有这些字段时，会使用右侧默认值
+// 已经保存过 false 的字段，不会被误改成 true
+proactiveForm.silentNight = session.value.proactiveSilentNight ?? true
+proactiveForm.requirePersonality = session.value.proactiveRequirePersonality ?? true
+proactiveForm.allowDrawing = session.value.proactiveAllowDrawing ?? false
+proactiveForm.minMessageCount = session.value.proactiveMinMessageCount ?? 8
+proactiveForm.maxRecentMessages = session.value.proactiveMaxRecentMessages ?? 3
+proactiveForm.onlyWhenLongConversation =
+  session.value.proactiveOnlyWhenLongConversation ?? true
 
-    await loadMessages()
-  await loadStickers()
-  scrollToBottom()
+await loadMessages()
+await loadStickers()
+scrollToBottom()
 
-  startProactiveScheduler()
+startProactiveScheduler()
 })
 onBeforeUnmount(() => {
   stopProactiveScheduler()
@@ -1002,19 +1074,32 @@ async function saveProactiveSettings() {
   await db.chatSessions.update(sessionId, {
     proactiveEnabled: proactiveForm.enabled,
     proactiveFrequencyMinutes: proactiveForm.frequencyMinutes,
-    proactiveNotify: notify
+    proactiveNotify: notify,
+    proactiveSilentNight: proactiveForm.silentNight,
+    proactiveRequirePersonality: proactiveForm.requirePersonality,
+    proactiveAllowDrawing: proactiveForm.allowDrawing,
+    proactiveMinMessageCount: proactiveForm.minMessageCount,
+    proactiveMaxRecentMessages: proactiveForm.maxRecentMessages,
+    proactiveOnlyWhenLongConversation: proactiveForm.onlyWhenLongConversation
   })
 
   session.value = {
     ...session.value,
     proactiveEnabled: proactiveForm.enabled,
     proactiveFrequencyMinutes: proactiveForm.frequencyMinutes,
-    proactiveNotify: notify
+    proactiveNotify: notify,
+    proactiveSilentNight: proactiveForm.silentNight,
+    proactiveRequirePersonality: proactiveForm.requirePersonality,
+    proactiveAllowDrawing: proactiveForm.allowDrawing,
+    proactiveMinMessageCount: proactiveForm.minMessageCount,
+    proactiveMaxRecentMessages: proactiveForm.maxRecentMessages,
+    proactiveOnlyWhenLongConversation: proactiveForm.onlyWhenLongConversation
   }
 
   proactiveForm.notify = notify
   showProactiveModal.value = false
 }
+
 
 async function triggerProactiveNow() {
   if (!session.value || aiLoading.value) return

@@ -63,14 +63,20 @@ export interface ChatSession {
   realUserDiary: string
   memorySummarizeEveryN: number
   memoryEnabled: boolean
+  proactiveEnabled: boolean
+  proactiveFrequencyMinutes: number
+  proactiveNotify: boolean
+  proactiveSilentNight: boolean
+  proactiveRequirePersonality: boolean
+  proactiveAllowDrawing: boolean
+  proactiveMinMessageCount: number
+  proactiveMaxRecentMessages: number
+  proactiveOnlyWhenLongConversation: boolean
+  lastProactiveAt: number | null
   lastMessageAt: number
   createdAt: number
-  proactiveEnabled: boolean
-proactiveFrequencyMinutes: number
-proactiveNotify: boolean
-lastProactiveAt: number | null
-
 }
+
 
 /** 全局表情包库 */
 export interface StickerPack {
