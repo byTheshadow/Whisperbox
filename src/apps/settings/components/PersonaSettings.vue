@@ -9,23 +9,81 @@
         <h3 class="persona-section-title">真实身份</h3>
         <span class="persona-section-hint">AI 用来认识真实的你</span>
       </div>
+<div v-if="realUserPersona" class="persona-card real-user">
+  <div class="persona-avatar" @click="editPersona(realUserPersona)">
+    <img v-if="realUserPersona.avatar" :src="realUserPersona.avatar" alt="" />
+    <span v-else class="avatar-placeholder">
+      {{ realUserPersona.name.charAt(0) }}
+    </span>
+  </div>
 
-      <div v-if="realUserPersona" class="persona-card real-user">
-        <div class="persona-avatar" @click="editPersona(realUserPersona)">
-          <img v-if="realUserPersona.avatar" :src="realUserPersona.avatar" alt="" />
-          <span v-else class="avatar-placeholder">{{ realUserPersona.name.charAt(0) }}</span>
-        </div>
-        <div class="persona-info">
-          <div class="persona-name">{{ realUserPersona.name }}</div>
-          <div class="persona-desc">{{ realUserPersona.description || '暂无描述' }}</div>
-        </div>
-        <button class="persona-edit-btn" type="button" @click="editPersona(realUserPersona)">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
-        </button>
-      </div>
+  <div class="persona-info">
+    <div class="persona-name">
+      {{ realUserPersona.name }}
+      <span class="real-user-badge">真实身份</span>
+    </div>
+    <div class="persona-desc">
+      {{ realUserPersona.description || '暂无描述' }}
+    </div>
+  </div>
+
+  <div class="persona-actions">
+    <button
+      class="persona-action-btn"
+      title="编辑"
+      type="button"
+      @click="editPersona(realUserPersona)"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+      >
+        <path
+          d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+
+    <button
+      class="persona-action-btn danger"
+      title="删除真实身份"
+      type="button"
+      @click="deletePersona(realUserPersona.id)"
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+      >
+        <polyline
+          points="3 6 5 6 21 6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+        <path
+          d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        />
+      </svg>
+    </button>
+  </div>
+</div>
+
 
       <button v-else class="add-persona-btn" type="button" @click="createPersona(true)">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -810,5 +868,13 @@ async function deletePersona(id: string) {
 .modal-leave-to .modal-content {
   transform: scale(0.95);
 }
+.real-user-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: rgba(139, 92, 246, 0.2);
+  color: rgba(196, 181, 253, 0.95);
+  border-radius: 4px;
+}
+
 </style>
 
