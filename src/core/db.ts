@@ -6,7 +6,7 @@ import Dexie, { type Table } from 'dexie'
 export interface Character {
   id: string
   name: string
-  avatar: string // Base64 或本地路径
+  avatar: string
   description: string
   personality: string
   scenario: string
@@ -15,8 +15,8 @@ export interface Character {
   creatorNotes: string
   systemPrompt: string
   postHistoryUser: string
-  worldBookId: string // 绑定的角色世界书 ID
-  cardLibraryIds: string[] // 绑定的字卡库 ID
+  worldBookId: string
+  cardLibraryIds: string[]
   tags: string[]
   createdAt: number
   updatedAt: number
@@ -29,6 +29,7 @@ export interface Persona {
   avatar: string
   description: string
   isDefault: boolean
+  isRealUser: boolean // true = 真实线下身份（只能有一个），false = 角色扮演身份
   createdAt: number
 }
 
@@ -56,7 +57,7 @@ export interface ChatSession {
   title: string
   wallpaper: string
   bubbleStyle: string
-  realUserDiary: string // AI 写的关于真实 User 的日记
+  realUserDiary: string
   lastMessageAt: number
   createdAt: number
 }
@@ -66,8 +67,8 @@ export interface WhisperCard {
   id: string
   libraryId: string
   content: string
-  triggerWords: string[] // 匹配触发词
-  weight: number // 权重，用于加权随机
+  triggerWords: string[]
+  weight: number
   createdAt: number
 }
 
@@ -76,9 +77,9 @@ export interface CardLibrary {
   id: string
   name: string
   description: string
-  boundCharacterIds: string[] // 绑定的角色（空数组 = 公共库）
-  replyInterval: number // 主动传讯间隔（秒），0 = 关闭
-  typingText: string // 自定义打字指示文案
+  boundCharacterIds: string[]
+  replyInterval: number
+  typingText: string
   createdAt: number
 }
 
@@ -89,7 +90,7 @@ export interface MemoryEntry {
   sessionId: string
   type: 'summary' | 'event' | 'diary' | 'custom'
   content: string
-  importance: number // 1-5 重要度
+  importance: number
   tags: string[]
   createdAt: number
   updatedAt: number
@@ -99,11 +100,11 @@ export interface MemoryEntry {
 export interface WorldBookEntry {
   id: string
   worldBookId: string
-  key: string[] // 触发关键词组
+  key: string[]
   content: string
   isEnabled: boolean
   priority: number
-  position: 'before' | 'after' // 注入 Prompt 的位置
+  position: 'before' | 'after'
   createdAt: number
 }
 
@@ -111,7 +112,7 @@ export interface WorldBookEntry {
 export interface WorldBook {
   id: string
   name: string
-  characterId: string // 空字符串 = 全局世界书
+  characterId: string
   description: string
   createdAt: number
 }
@@ -122,9 +123,9 @@ export interface TodoItem {
   title: string
   description: string
   completed: boolean
-  dueAt: number | null // 截止时间戳
-  remindAt: number | null // 提醒时间戳
-  characterId: string // 绑定的提醒角色（空 = 系统通知）
+  dueAt: number | null
+  remindAt: number | null
+  characterId: string
   priority: 'low' | 'medium' | 'high'
   tags: string[]
   completedAt: number | null
@@ -134,10 +135,10 @@ export interface TodoItem {
 /** 备忘录 */
 export interface NoteEntry {
   id: string
-  owner: 'user' | string // 'user' 或角色 ID
+  owner: 'user' | string
   title: string
   content: string
-  exposeToMemory: boolean // 是否暴露给 AI 记忆库
+  exposeToMemory: boolean
   tags: string[]
   updatedAt: number
   createdAt: number
@@ -145,14 +146,15 @@ export interface NoteEntry {
 
 /** 全局设置 */
 export interface AppSettings {
-  id: string // 固定为 'global'
+  id: string
   apiBaseUrl: string
   apiKey: string
   selectedModel: string
+  availableModels: string[] // 缓存的模型列表
   proactivePushEnabled: boolean
-  proactiveCheckInterval: number // 秒
-  summarizeEveryN: number // 每 N 条对话生成摘要
-  theme: 'dark' // 未来可扩展
+  proactiveCheckInterval: number
+  summarizeEveryN: number
+  theme: 'dark'
   createdAt: number
   updatedAt: number
 }
@@ -176,9 +178,9 @@ export class WhisperboxDB extends Dexie {
   constructor() {
     super('whisperbox')
 
-    this.version(1).stores({
+    this.version(2).stores({
       characters: 'id, name, createdAt',
-      personas: 'id, name, isDefault',
+      personas: 'id, name, isDefault, isRealUser',
       messages: 'id, sessionId, timestamp, role',
       chatSessions: 'id, characterId, mode, lastMessageAt, createdAt',
       whisperCards: 'id, libraryId, *triggerWords',
@@ -204,6 +206,7 @@ export async function initDefaultSettings(): Promise<void> {
       apiBaseUrl: '',
       apiKey: '',
       selectedModel: '',
+      availableModels: [],
       proactivePushEnabled: false,
       proactiveCheckInterval: 300,
       summarizeEveryN: 20,
