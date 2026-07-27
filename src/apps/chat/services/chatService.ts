@@ -27,6 +27,14 @@ export async function createSession(
     proactiveNotify: false,
     lastProactiveAt: null,
     lastMessageAt: now,
+    
+  // 新增：主动消息高级设置的默认值
+  proactiveSilentNight: true,
+  proactiveRequirePersonality: true,
+  proactiveAllowDrawing: false,
+  proactiveMinMessageCount: 8,
+  proactiveMaxRecentMessages: 3,
+  proactiveOnlyWhenLongConversation: true,
     createdAt: now
   }
 
