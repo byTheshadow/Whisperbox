@@ -1,5 +1,5 @@
 <template>
-  <div class="chat-session-container">
+  <div class="chat-session-container" :style="sessionWallpaperStyle">
     <!-- 顶部栏（固定） -->
     <header class="chat-header">
       <button class="header-btn" type="button" @click="$router.push('/chat')">
@@ -13,7 +13,18 @@
           <img v-if="character?.avatar" :src="character.avatar" alt="" />
           <span v-else class="avatar-letter">{{ (character?.name || '?').charAt(0) }}</span>
         </div>
-        <span class="header-name">{{ character?.name || '对话' }}</span>
+
+        <div class="header-meta">
+          <span class="header-name">{{ character?.name || '对话' }}</span>
+          <span class="header-subtitle">
+            {{ sessionModeLabel }}
+          </span>
+        </div>
+
+        <div v-if="userPersona" class="user-avatar-pill" :title="userPersona.name">
+          <img v-if="userPersona.avatar" :src="userPersona.avatar" alt="" />
+          <span v-else>{{ userPersona.name.charAt(0) }}</span>
+        </div>
       </div>
 
       <button class="header-btn" type="button" @click="showSessionMenu = !showSessionMenu">
@@ -24,7 +35,9 @@
 
       <Transition name="fade">
         <div v-if="showSessionMenu" class="session-menu">
-          <button class="menu-item danger" @click="handleDeleteSession">删除对话</button>
+          <button class="menu-item" type="button" @click="handleSetWallpaper">设置壁纸</button>
+          <button class="menu-item" type="button" @click="handleClearMessages">清空聊天记录</button>
+          <button class="menu-item danger" type="button" @click="handleDeleteSession">删除对话</button>
         </div>
       </Transition>
     </header>
@@ -54,36 +67,18 @@
             @contextmenu.prevent="openContextMenu($event, msg)"
             @click.long="openContextMenu($event, msg)"
           >
-            <!-- 表情包 -->
-            <div v-if="msg.media?.type === 'sticker'" class="media-sticker">
-              <img
-                v-if="msg.media?.url"
-                :src="msg.media.url"
-                alt=""
-                class="sticker-image"
-              />
-              <div v-else class="sticker-fallback">
-                <svg
-                  width="28"
-                  height="28"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  opacity="0.6"
-                >
-                  <path
-                    d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  />
-                </svg>
-              </div>
-            </div>
-
-            <!-- 假图片 -->
-            <div v-else-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
-              <svg v-if="!revealedMedia.has(msg.id)" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6">
+            <!-- 图片 -->
+            <div v-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
+              <svg
+                v-if="!revealedMedia.has(msg.id)"
+                width="32"
+                height="32"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                opacity="0.6"
+              >
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
@@ -92,7 +87,7 @@
               <p v-else class="media-tap-hint">点击查看</p>
             </div>
 
-            <!-- 假语音 -->
+            <!-- 语音 -->
             <div v-else-if="msg.media?.type === 'voice'" class="media-voice" @click="toggleMediaReveal(msg.id)">
               <div v-if="!revealedMedia.has(msg.id)" class="voice-bar">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -103,6 +98,16 @@
                 </div>
               </div>
               <p v-else class="media-description">{{ msg.media?.description }}</p>
+            </div>
+
+            <!-- 表情包 -->
+            <div v-else-if="msg.media?.type === 'sticker'" class="media-sticker">
+              <img v-if="msg.media?.url" :src="msg.media.url" alt="" class="sticker-image" />
+              <div v-else class="sticker-fallback">
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
             </div>
 
             <!-- 普通文字 -->
@@ -157,12 +162,19 @@
             <polyline points="21 15 16 10 5 21"/>
           </svg>
         </button>
+
         <button class="tool-btn" type="button" title="发送语音" @click="showVoiceInput = true">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
             <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
             <line x1="12" y1="19" x2="12" y2="23"/>
             <line x1="8" y1="23" x2="16" y2="23"/>
+          </svg>
+        </button>
+
+        <button class="tool-btn" type="button" title="发送表情包" @click="showStickerPicker = true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
       </div>
@@ -251,6 +263,124 @@
       </Transition>
     </Teleport>
 
+    <!-- 全局表情包选择器 -->
+<Teleport to="body">
+  <Transition name="fade">
+    <div v-if="showStickerPicker" class="modal-overlay" @click.self="showStickerPicker = false">
+      <div class="mini-modal sticker-modal">
+        <h4 class="mini-modal-title">表情包</h4>
+
+        <div v-if="stickers.length === 0" class="sticker-empty">
+          尚未添加表情包。添加后可在所有聊天窗共用。
+        </div>
+
+        <div v-else class="sticker-grid">
+          <div
+            v-for="sticker in stickers"
+            :key="sticker.id"
+            class="sticker-card"
+          >
+            <button
+              class="sticker-send-btn"
+              type="button"
+              :title="sticker.name"
+              @click="sendSticker(sticker)"
+            >
+              <img :src="sticker.url" alt="" class="sticker-card-image" />
+            </button>
+
+            <div class="sticker-card-footer">
+              <span class="sticker-card-name">{{ sticker.name }}</span>
+              <button
+                class="sticker-delete-btn"
+                type="button"
+                title="删除"
+                @click.stop="handleDeleteSticker(sticker.id)"
+              >
+                ×
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="sticker-add-panel">
+          <h5 class="sticker-add-title">添加全局表情包</h5>
+
+          <input
+            v-model="newSticker.name"
+            class="form-input"
+            type="text"
+            placeholder="名称，例如：哭哭猫"
+          />
+
+          <input
+            v-model="newSticker.url"
+            class="form-input"
+            type="text"
+            placeholder="图片 URL"
+          />
+
+          <textarea
+            v-model="newSticker.description"
+            class="form-input form-textarea"
+            rows="2"
+            placeholder="描述：画面上是什么"
+          ></textarea>
+
+          <textarea
+            v-model="newSticker.meaning"
+            class="form-input form-textarea"
+            rows="2"
+            placeholder="含义：表达什么情绪/意图，给 AI 理解用"
+          ></textarea>
+
+          <button
+            class="modal-btn primary sticker-add-btn"
+            type="button"
+            :disabled="
+              !newSticker.name.trim() ||
+              !newSticker.url.trim() ||
+              !newSticker.description.trim() ||
+              !newSticker.meaning.trim()
+            "
+            @click="handleAddSticker"
+          >
+            添加到全局表情包
+          </button>
+        </div>
+
+        <div class="mini-modal-actions">
+          <button class="modal-btn secondary" type="button" @click="showStickerPicker = false">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+
+
+    <!-- 壁纸设置弹窗 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showWallpaperInput" class="modal-overlay" @click.self="showWallpaperInput = false">
+          <div class="mini-modal">
+            <h4 class="mini-modal-title">设置壁纸</h4>
+            <textarea
+              v-model="wallpaperInput"
+              class="form-input form-textarea"
+              placeholder="输入壁纸 URL，或粘贴图片链接…"
+              rows="3"
+            ></textarea>
+            <div class="mini-modal-actions">
+              <button class="modal-btn secondary" type="button" @click="showWallpaperInput = false">取消</button>
+              <button class="modal-btn primary" type="button" :disabled="!wallpaperInput.trim()" @click="saveWallpaper">保存</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- 右键 / 长按菜单 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -271,7 +401,21 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { db, type Message, type Character } from '@/core/db'
+import { db, type Message, type Character, type Persona, type StickerItem } from '@/core/db'
+import {
+  addMessage,
+  deleteMessage,
+  getSessionMessages,
+  sendAndGetReply,
+  rerollMessage
+} from './services/chatService'
+import {
+  addSticker,
+  deleteSticker,
+  getEnabledStickers,
+  stickerToMessageMedia
+} from './services/stickerService'
+
 import {
   addMessage,
   deleteMessage,
@@ -288,24 +432,54 @@ const route = useRoute()
 const router = useRouter()
 
 const sessionId = route.params.sessionId as string
+const session = ref<Awaited<ReturnType<typeof db.chatSessions.get>> | null>(null)
 const character = ref<Character | undefined>()
+const userPersona = ref<Persona | null>(null)
 const messages = ref<DisplayMessage[]>([])
 const inputText = ref('')
 const aiLoading = ref(false)
 const showSessionMenu = ref(false)
 const showImageInput = ref(false)
 const showVoiceInput = ref(false)
+const showWallpaperInput = ref(false)
+const wallpaperInput = ref('')
+const showStickerPicker = ref(false)
 const mediaDescription = ref('')
 const quotedMessage = ref<Message | null>(null)
 const revealedMedia = reactive(new Set<string>())
 const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+    const stickers = ref<StickerItem[]>([])
+const newSticker = reactive({
+  name: '',
+  url: '',
+  description: '',
+  meaning: ''
+})
+
 
 const contextMenu = reactive({
   visible: false,
   x: 0,
   y: 0,
   message: null as Message | null
+})
+
+const sessionModeLabel = computed(() => {
+  if (session.value?.mode === 'daily') return '日常模式'
+  if (session.value?.mode === 'roleplay') return 'RP 模式'
+  return ''
+})
+
+const sessionWallpaperStyle = computed(() => {
+  if (!session.value?.wallpaper) return {}
+
+  return {
+    backgroundImage: `url(${session.value.wallpaper})`,
+    backgroundSize: 'cover',
+    backgroundPosition: 'center',
+    backgroundAttachment: 'fixed'
+  }
 })
 
 // 打字指示器文案（可自定义）
@@ -317,16 +491,25 @@ const typingIndicatorText = computed(() => {
 })
 
 onMounted(async () => {
-  const session = await db.chatSessions.get(sessionId)
+  session.value = await db.chatSessions.get(sessionId)
 
-  if (!session) {
+  if (!session.value) {
     router.push('/chat')
     return
   }
 
-  character.value = await db.characters.get(session.characterId)
+  character.value = await db.characters.get(session.value.characterId)
+
+  if (session.value.personaId) {
+    userPersona.value = await db.personas.get(session.value.personaId) || null
+  }
+
+  wallpaperInput.value = session.value.wallpaper || ''
+
   await loadMessages()
-  scrollToBottom()
+await loadStickers()
+scrollToBottom()
+
 })
 
 async function loadMessages() {
@@ -382,14 +565,14 @@ async function sendToAi() {
   scrollToBottom()
 
   try {
-    const session = await db.chatSessions.get(sessionId)
-    const persona = session?.personaId
-      ? await db.personas.get(session.personaId)
+    const currentSession = await db.chatSessions.get(sessionId)
+    const persona = currentSession?.personaId
+      ? await db.personas.get(currentSession.personaId)
       : null
 
     const replyMessages = await sendAndGetReply(
       sessionId,
-      session?.characterId || '',
+      currentSession?.characterId || '',
       persona?.description || ''
     )
 
@@ -455,6 +638,62 @@ async function sendVoice() {
   scrollToBottom()
 }
 
+async function loadStickers() {
+  stickers.value = await getEnabledStickers()
+}
+
+async function sendSticker(sticker: StickerItem) {
+  const msg = await addMessage(
+    sessionId,
+    'user',
+    '',
+    stickerToMessageMedia(sticker)
+  )
+
+  messages.value.push({ ...msg })
+  showStickerPicker.value = false
+  scrollToBottom()
+}
+
+/**
+ * 添加全局表情包。
+ * 添加后会出现在所有聊天窗。
+ */
+async function handleAddSticker() {
+  const name = newSticker.name.trim()
+  const url = newSticker.url.trim()
+  const description = newSticker.description.trim()
+  const meaning = newSticker.meaning.trim()
+
+  if (!name || !url || !description || !meaning) return
+
+  await addSticker({
+    name,
+    url,
+    description,
+    meaning
+  })
+
+  newSticker.name = ''
+  newSticker.url = ''
+  newSticker.description = ''
+  newSticker.meaning = ''
+
+  await loadStickers()
+}
+
+/**
+ * 删除全局表情包。
+ * 不影响历史聊天记录里已经发送过的表情包消息。
+ */
+async function handleDeleteSticker(id: string) {
+  if (!window.confirm('确定删除这个全局表情包吗？历史消息不会被删除。')) return
+
+  await deleteSticker(id)
+  await loadStickers()
+}
+
+
 function toggleMediaReveal(msgId: string) {
   if (revealedMedia.has(msgId)) {
     revealedMedia.delete(msgId)
@@ -512,15 +751,15 @@ async function handleReroll() {
   try {
     messages.value = messages.value.filter(m => m.id !== msgId)
 
-    const session = await db.chatSessions.get(sessionId)
-    const persona = session?.personaId
-      ? await db.personas.get(session.personaId)
+    const currentSession = await db.chatSessions.get(sessionId)
+    const persona = currentSession?.personaId
+      ? await db.personas.get(currentSession.personaId)
       : null
 
     const newMessages = await rerollMessage(
       msgId,
       sessionId,
-      session?.characterId || '',
+      currentSession?.characterId || '',
       persona?.description || ''
     )
 
@@ -538,6 +777,48 @@ async function handleReroll() {
   } finally {
     aiLoading.value = false
   }
+}
+
+// 清空聊天记录
+async function handleClearMessages() {
+  if (!window.confirm('确定清空这个对话的所有聊天记录吗？此操作不可撤销。')) return
+
+  await db.messages.where('sessionId').equals(sessionId).delete()
+  messages.value = []
+  quotedMessage.value = null
+  closeContextMenu()
+  showSessionMenu.value = false
+}
+
+// 设置壁纸
+function handleSetWallpaper() {
+  wallpaperInput.value = session.value?.wallpaper || ''
+  showWallpaperInput.value = true
+  showSessionMenu.value = false
+}
+
+async function saveWallpaper() {
+  const value = wallpaperInput.value.trim()
+
+  if (!session.value) return
+
+  await db.chatSessions.update(sessionId, {
+    wallpaper: value
+  })
+
+  session.value = {
+    ...session.value,
+    wallpaper: value
+  }
+
+  showWallpaperInput.value = false
+}
+
+// 为后续“角色主动发消息”预留入口
+async function triggerProactiveMessage(content: string) {
+  const msg = await addMessage(sessionId, 'assistant', content)
+  messages.value.push({ ...msg })
+  scrollToBottom()
 }
 
 // 删除对话
@@ -574,6 +855,7 @@ watch(() => contextMenu.visible, (visible) => {
 })
 </script>
 
+
 <style scoped>
 .chat-session-container {
   display: flex;
@@ -584,6 +866,8 @@ watch(() => contextMenu.visible, (visible) => {
   margin: 0 auto;
   position: relative;
   overflow: hidden;
+  background-color: var(--color-abyss);
+  background-repeat: no-repeat;
 }
 
 /* Header — 固定 */
@@ -595,12 +879,15 @@ watch(() => contextMenu.visible, (visible) => {
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   position: relative;
   flex-shrink: 0;
+  background: rgba(8, 8, 8, 0.72);
+  backdrop-filter: blur(10px);
 }
 
 .header-center {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 .header-avatar {
@@ -612,6 +899,7 @@ watch(() => contextMenu.visible, (visible) => {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
 
 .header-avatar img {
@@ -626,9 +914,44 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.6);
 }
 
+.header-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .header-name {
   font-size: 16px;
   font-weight: 500;
+  line-height: 1.2;
+}
+
+.header-subtitle {
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.38);
+  line-height: 1.2;
+}
+
+.user-avatar-pill {
+  width: 28px;
+  height: 28px;
+  margin-left: 4px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.07);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(245, 245, 245, 0.65);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.user-avatar-pill img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .header-btn {
@@ -643,6 +966,7 @@ watch(() => contextMenu.visible, (visible) => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .header-btn:hover {
@@ -659,6 +983,7 @@ watch(() => contextMenu.visible, (visible) => {
   border-radius: 10px;
   overflow: hidden;
   z-index: 50;
+  min-width: 140px;
 }
 
 .menu-item {
@@ -673,6 +998,7 @@ watch(() => contextMenu.visible, (visible) => {
   text-align: left;
   cursor: pointer;
   transition: background 0.15s;
+  white-space: nowrap;
 }
 
 .menu-item:hover {
@@ -692,6 +1018,7 @@ watch(() => contextMenu.visible, (visible) => {
   display: flex;
   flex-direction: column;
   gap: 12px;
+  background: rgba(8, 8, 8, 0.25);
 }
 
 .message-row {
@@ -849,12 +1176,12 @@ watch(() => contextMenu.visible, (visible) => {
 }
 
 .media-sticker {
-  width: 140px;
+  width: 180px;
   min-height: 100px;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 14px;
   background: rgba(255, 255, 255, 0.03);
 }
 
@@ -948,9 +1275,10 @@ watch(() => contextMenu.visible, (visible) => {
   display: flex;
   align-items: center;
   padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.04);
+  background: rgba(8, 8, 8, 0.72);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  backdrop-filter: blur(10px);
 }
 
 .quote-bar-content {
@@ -997,6 +1325,8 @@ watch(() => contextMenu.visible, (visible) => {
   padding: 10px 16px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   flex-shrink: 0;
+  background: rgba(8, 8, 8, 0.72);
+  backdrop-filter: blur(10px);
 }
 
 .input-tools {
@@ -1233,5 +1563,142 @@ watch(() => contextMenu.visible, (visible) => {
 .fade-leave-to {
   opacity: 0;
 }
-</style>
 
+/* Sticker picker */
+.sticker-modal {
+  max-width: 460px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
+.sticker-empty {
+  padding: 18px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: rgba(245, 245, 245, 0.45);
+  text-align: center;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.sticker-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.sticker-card {
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+}
+
+.sticker-send-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 96px;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.sticker-send-btn:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.sticker-card-image {
+  max-width: 100%;
+  max-height: 80px;
+  object-fit: contain;
+  display: block;
+}
+
+.sticker-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 6px 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sticker-card-name {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.62);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sticker-delete-btn {
+  width: 22px;
+  height: 22px;
+  color: rgba(245, 245, 245, 0.42);
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.sticker-delete-btn:hover {
+  color: #e57373;
+  background: rgba(229, 115, 115, 0.08);
+}
+
+.sticker-add-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding-top: 14px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.sticker-add-title {
+  margin: 0 0 2px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(245, 245, 245, 0.7);
+}
+
+.sticker-add-btn {
+  align-self: flex-end;
+  margin-top: 2px;
+}
+
+/* Sticker in message */
+.media-sticker {
+  width: 180px;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sticker-image {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  display: block;
+}
+
+.sticker-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  color: rgba(245, 245, 245, 0.5);
+}
+
+</style>

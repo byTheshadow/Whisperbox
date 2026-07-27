@@ -45,6 +45,7 @@ export interface Message {
     url: string
     name?: string
     meaning?: string
+    stickerId?: string
   }
   isEdited: boolean
   timestamp: number
@@ -64,6 +65,29 @@ export interface ChatSession {
   memoryEnabled: boolean
   lastMessageAt: number
   createdAt: number
+}
+
+/** 全局表情包库 */
+export interface StickerPack {
+  id: string
+  name: string
+  description: string
+  isEnabled: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+/** 全局表情包条目 */
+export interface StickerItem {
+  id: string
+  packId: string
+  name: string
+  url: string
+  description: string
+  meaning: string
+  triggerWords: string[]
+  createdAt: number
+  updatedAt: number
 }
 
 /** 字卡条目 */
@@ -97,29 +121,6 @@ export interface MemoryEntry {
   isPermanent: boolean
   importance: number
   tags: string[]
-  createdAt: number
-  updatedAt: number
-}
-
-/** 全局表情包条目 */
-export interface StickerItem {
-  id: string
-  packId: string
-  name: string
-  url: string
-  description: string
-  meaning: string
-  triggerWords: string[]
-  createdAt: number
-  updatedAt: number
-}
-
-/** 全局表情包包 */
-export interface StickerPack {
-  id: string
-  name: string
-  description: string
-  isEnabled: boolean
   createdAt: number
   updatedAt: number
 }
@@ -201,9 +202,9 @@ export class WhisperboxDB extends Dexie {
   worldBooks!: Table<WorldBook>
   todoItems!: Table<TodoItem>
   noteEntries!: Table<NoteEntry>
+  appSettings!: Table<AppSettings>
   stickerPacks!: Table<StickerPack>
   stickerItems!: Table<StickerItem>
-  appSettings!: Table<AppSettings>
 
   constructor() {
     super('whisperbox')
@@ -220,9 +221,9 @@ export class WhisperboxDB extends Dexie {
       worldBooks: 'id, characterId',
       todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
       noteEntries: 'id, owner, exposeToMemory, updatedAt',
-      stickerPacks: 'id, isEnabled, createdAt',
-      stickerItems: 'id, packId, *triggerWords, createdAt',
-      appSettings: 'id'
+      appSettings: 'id',
+      stickerPacks: 'id, name, isEnabled, createdAt',
+      stickerItems: 'id, packId, name, *triggerWords, createdAt'
     })
   }
 }

@@ -177,11 +177,13 @@ ${personaDescription}
         content = content ? `${content}\n[voice: ${msg.media.description}]` : `[voice: ${msg.media.description}]`
       } else if (msg.media.type === 'sticker') {
         const name = msg.media.name || '表情包'
-        const meaning = msg.media.meaning || msg.media.description
+        const meaning = msg.media.meaning || msg.media.description || ''
+        const description = msg.media.description || ''
         const url = msg.media.url || ''
+
         content = content
-          ? `${content}\n[sticker: ${name} | ${meaning} | ${msg.media.description} | ${url}]`
-          : `[sticker: ${name} | ${meaning} | ${msg.media.description} | ${url}]`
+          ? `${content}\n[sticker: ${name} | ${meaning} | ${description} | ${url}]`
+          : `[sticker: ${name} | ${meaning} | ${description} | ${url}]`
       }
     }
 
