@@ -358,19 +358,43 @@ async function setDefault(id: string) {
 }
 
 async function deletePersona(id: string) {
-  const persona = personas.value.find(p => p.id === id)
-  if (!persona) return
+  const persona = personas.value.find(item => item.id === id)
 
-  if (persona.isDefault) {
-    alert('不能删除默认身份，请先设置其他身份为默认')
+  if (!persona) {
     return
   }
 
-  if (confirm(`确定删除「${persona.name}」吗？`)) {
+  const confirmed = window.confirm(
+    `确定删除身份「${persona.name}」吗？此操作无法撤销。`
+  )
+
+  if (!confirmed) {
+    return
+  }
+
+  try {
+    // 若删除的是默认角色扮演身份：
+    // 先将另一个角色扮演身份设为默认；若没有其他身份，则允许直接删除。
+    if (!persona.isRealUser && persona.isDefault) {
+      const replacement = personas.value.find(
+        item => !item.isRealUser && item.id !== persona.id
+      )
+
+      if (replacement) {
+        await db.personas.update(replacement.id, {
+          isDefault: true
+        })
+      }
+    }
+
     await db.personas.delete(id)
     await loadPersonas()
+  } catch (error) {
+    console.error('删除身份失败：', error)
+    window.alert('删除失败，请查看控制台错误信息。')
   }
 }
+
 </script>
 
 <style scoped>
