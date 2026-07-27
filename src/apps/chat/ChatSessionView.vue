@@ -263,103 +263,6 @@
       </Transition>
     </Teleport>
 
-    <!-- 全局表情包选择器 -->
-<Teleport to="body">
-  <Transition name="fade">
-    <div v-if="showStickerPicker" class="modal-overlay" @click.self="showStickerPicker = false">
-      <div class="mini-modal sticker-modal">
-        <h4 class="mini-modal-title">表情包</h4>
-
-        <div v-if="stickers.length === 0" class="sticker-empty">
-          尚未添加表情包。添加后可在所有聊天窗共用。
-        </div>
-
-        <div v-else class="sticker-grid">
-          <div
-            v-for="sticker in stickers"
-            :key="sticker.id"
-            class="sticker-card"
-          >
-            <button
-              class="sticker-send-btn"
-              type="button"
-              :title="sticker.name"
-              @click="sendSticker(sticker)"
-            >
-              <img :src="sticker.url" alt="" class="sticker-card-image" />
-            </button>
-
-            <div class="sticker-card-footer">
-              <span class="sticker-card-name">{{ sticker.name }}</span>
-              <button
-                class="sticker-delete-btn"
-                type="button"
-                title="删除"
-                @click.stop="handleDeleteSticker(sticker.id)"
-              >
-                ×
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sticker-add-panel">
-          <h5 class="sticker-add-title">添加全局表情包</h5>
-
-          <input
-            v-model="newSticker.name"
-            class="form-input"
-            type="text"
-            placeholder="名称，例如：哭哭猫"
-          />
-
-          <input
-            v-model="newSticker.url"
-            class="form-input"
-            type="text"
-            placeholder="图片 URL"
-          />
-
-          <textarea
-            v-model="newSticker.description"
-            class="form-input form-textarea"
-            rows="2"
-            placeholder="描述：画面上是什么"
-          ></textarea>
-
-          <textarea
-            v-model="newSticker.meaning"
-            class="form-input form-textarea"
-            rows="2"
-            placeholder="含义：表达什么情绪/意图，给 AI 理解用"
-          ></textarea>
-
-          <button
-            class="modal-btn primary sticker-add-btn"
-            type="button"
-            :disabled="
-              !newSticker.name.trim() ||
-              !newSticker.url.trim() ||
-              !newSticker.description.trim() ||
-              !newSticker.meaning.trim()
-            "
-            @click="handleAddSticker"
-          >
-            添加到全局表情包
-          </button>
-        </div>
-
-        <div class="mini-modal-actions">
-          <button class="modal-btn secondary" type="button" @click="showStickerPicker = false">
-            关闭
-          </button>
-        </div>
-      </div>
-    </div>
-  </Transition>
-</Teleport>
-
-
     <!-- 壁纸设置弹窗 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -375,6 +278,102 @@
             <div class="mini-modal-actions">
               <button class="modal-btn secondary" type="button" @click="showWallpaperInput = false">取消</button>
               <button class="modal-btn primary" type="button" :disabled="!wallpaperInput.trim()" @click="saveWallpaper">保存</button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 全局表情包选择器 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showStickerPicker" class="modal-overlay" @click.self="showStickerPicker = false">
+          <div class="mini-modal sticker-modal">
+            <h4 class="mini-modal-title">表情包</h4>
+
+            <div v-if="stickers.length === 0" class="sticker-empty">
+              尚未添加表情包。添加后可在所有聊天窗共用。
+            </div>
+
+            <div v-else class="sticker-grid">
+              <div
+                v-for="sticker in stickers"
+                :key="sticker.id"
+                class="sticker-card"
+              >
+                <button
+                  class="sticker-send-btn"
+                  type="button"
+                  :title="sticker.name"
+                  @click="sendSticker(sticker)"
+                >
+                  <img :src="sticker.url" alt="" class="sticker-card-image" />
+                </button>
+
+                <div class="sticker-card-footer">
+                  <span class="sticker-card-name">{{ sticker.name }}</span>
+                  <button
+                    class="sticker-delete-btn"
+                    type="button"
+                    title="删除"
+                    @click.stop="handleDeleteSticker(sticker.id)"
+                  >
+                    ×
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div class="sticker-add-panel">
+              <h5 class="sticker-add-title">添加全局表情包</h5>
+
+              <input
+                v-model="newSticker.name"
+                class="form-input"
+                type="text"
+                placeholder="名称，例如：哭哭猫"
+              />
+
+              <input
+                v-model="newSticker.url"
+                class="form-input"
+                type="text"
+                placeholder="图片 URL"
+              />
+
+              <textarea
+                v-model="newSticker.description"
+                class="form-input form-textarea"
+                rows="2"
+                placeholder="描述：画面上是什么"
+              ></textarea>
+
+              <textarea
+                v-model="newSticker.meaning"
+                class="form-input form-textarea"
+                rows="2"
+                placeholder="含义：表达什么情绪/意图，给 AI 理解用"
+              ></textarea>
+
+              <button
+                class="modal-btn primary sticker-add-btn"
+                type="button"
+                :disabled="
+                  !newSticker.name.trim() ||
+                  !newSticker.url.trim() ||
+                  !newSticker.description.trim() ||
+                  !newSticker.meaning.trim()
+                "
+                @click="handleAddSticker"
+              >
+                添加到全局表情包
+              </button>
+            </div>
+
+            <div class="mini-modal-actions">
+              <button class="modal-btn secondary" type="button" @click="showStickerPicker = false">
+                关闭
+              </button>
             </div>
           </div>
         </div>
@@ -401,7 +400,14 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { db, type Message, type Character, type Persona, type StickerItem } from '@/core/db'
+import {
+  db,
+  type Message,
+  type Character,
+  type Persona,
+  type ChatSession,
+  type StickerItem
+} from '@/core/db'
 import {
   addMessage,
   deleteMessage,
@@ -416,14 +422,6 @@ import {
   stickerToMessageMedia
 } from './services/stickerService'
 
-import {
-  addMessage,
-  deleteMessage,
-  getSessionMessages,
-  sendAndGetReply,
-  rerollMessage
-} from './services/chatService'
-
 interface DisplayMessage extends Message {
   quotedContent?: string
 }
@@ -432,7 +430,7 @@ const route = useRoute()
 const router = useRouter()
 
 const sessionId = route.params.sessionId as string
-const session = ref<Awaited<ReturnType<typeof db.chatSessions.get>> | null>(null)
+const session = ref<ChatSession | null>(null)
 const character = ref<Character | undefined>()
 const userPersona = ref<Persona | null>(null)
 const messages = ref<DisplayMessage[]>([])
@@ -449,14 +447,14 @@ const quotedMessage = ref<Message | null>(null)
 const revealedMedia = reactive(new Set<string>())
 const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
-    const stickers = ref<StickerItem[]>([])
+
+const stickers = ref<StickerItem[]>([])
 const newSticker = reactive({
   name: '',
   url: '',
   description: '',
   meaning: ''
 })
-
 
 const contextMenu = reactive({
   visible: false,
@@ -491,7 +489,7 @@ const typingIndicatorText = computed(() => {
 })
 
 onMounted(async () => {
-  session.value = await db.chatSessions.get(sessionId)
+  session.value = await db.chatSessions.get(sessionId) || null
 
   if (!session.value) {
     router.push('/chat')
@@ -507,14 +505,17 @@ onMounted(async () => {
   wallpaperInput.value = session.value.wallpaper || ''
 
   await loadMessages()
-await loadStickers()
-scrollToBottom()
-
+  await loadStickers()
+  scrollToBottom()
 })
 
 async function loadMessages() {
   const raw = await getSessionMessages(sessionId)
   messages.value = raw.map(msg => ({ ...msg }))
+}
+
+async function loadStickers() {
+  stickers.value = await getEnabledStickers()
 }
 
 function scrollToBottom() {
@@ -638,10 +639,6 @@ async function sendVoice() {
   scrollToBottom()
 }
 
-async function loadStickers() {
-  stickers.value = await getEnabledStickers()
-}
-
 async function sendSticker(sticker: StickerItem) {
   const msg = await addMessage(
     sessionId,
@@ -692,7 +689,6 @@ async function handleDeleteSticker(id: string) {
   await deleteSticker(id)
   await loadStickers()
 }
-
 
 function toggleMediaReveal(msgId: string) {
   if (revealedMedia.has(msgId)) {
@@ -814,13 +810,6 @@ async function saveWallpaper() {
   showWallpaperInput.value = false
 }
 
-// 为后续“角色主动发消息”预留入口
-async function triggerProactiveMessage(content: string) {
-  const msg = await addMessage(sessionId, 'assistant', content)
-  messages.value.push({ ...msg })
-  scrollToBottom()
-}
-
 // 删除对话
 async function handleDeleteSession() {
   if (!window.confirm('确定删除这个对话？所有消息将被清除。')) return
@@ -854,7 +843,6 @@ watch(() => contextMenu.visible, (visible) => {
   }
 })
 </script>
-
 
 <style scoped>
 .chat-session-container {
@@ -1478,6 +1466,12 @@ watch(() => contextMenu.visible, (visible) => {
   border-radius: 14px;
 }
 
+.sticker-modal {
+  max-width: 460px;
+  max-height: 86vh;
+  overflow-y: auto;
+}
+
 .mini-modal-title {
   font-family: 'Cinzel', 'Noto Serif SC', serif;
   font-size: 16px;
@@ -1553,24 +1547,7 @@ watch(() => contextMenu.visible, (visible) => {
   cursor: not-allowed;
 }
 
-/* Transitions */
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.15s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
-}
-
 /* Sticker picker */
-.sticker-modal {
-  max-width: 460px;
-  max-height: 86vh;
-  overflow-y: auto;
-}
-
 .sticker-empty {
   padding: 18px;
   margin-bottom: 16px;
@@ -1675,30 +1652,14 @@ watch(() => contextMenu.visible, (visible) => {
   margin-top: 2px;
 }
 
-/* Sticker in message */
-.media-sticker {
-  width: 180px;
-  min-height: 100px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 14px;
-  background: rgba(255, 255, 255, 0.03);
+/* Transitions */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
 }
 
-.sticker-image {
-  max-width: 100%;
-  max-height: 180px;
-  object-fit: contain;
-  display: block;
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
-
-.sticker-fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 80px;
-  color: rgba(245, 245, 245, 0.5);
-}
-
 </style>
