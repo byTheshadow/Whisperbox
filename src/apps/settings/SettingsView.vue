@@ -15,7 +15,7 @@
       <!-- 导航 -->
       <SettingsNav 
         :current-tab="currentTab" 
-        @change="currentTab = $event" 
+        @change="handleTabChange" 
       />
 
       <!-- 内容区 -->
@@ -35,7 +35,13 @@ import SettingsNav from './components/SettingsNav.vue'
 import ApiSettings from './components/ApiSettings.vue'
 import PersonaSettings from './components/PersonaSettings.vue'
 
-const currentTab = ref<'api' | 'persona'>('api')
+type SettingsTab = 'api' | 'persona'
+
+const currentTab = ref<SettingsTab>('api')
+
+function handleTabChange(tab: string) {
+  currentTab.value = tab as SettingsTab
+}
 </script>
 
 <style scoped>

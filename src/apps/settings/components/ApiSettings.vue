@@ -73,7 +73,8 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { db, type AppSettings } from '@/core/db'
+import { db } from '@/core/db'
+
 
 const showApiKey = ref(false)
 const fetchingModels = ref(false)
