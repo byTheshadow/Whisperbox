@@ -55,9 +55,9 @@
             @click.long="openContextMenu($event, msg)"
           >
             <!-- 表情包 -->
-            <div v-else-if="msg.media?.type === 'sticker'" class="media-sticker">
+            <div v-if="msg.media?.type === 'sticker'" class="media-sticker">
               <img
-                v-if="msg.media.url"
+                v-if="msg.media?.url"
                 :src="msg.media.url"
                 alt=""
                 class="sticker-image"
@@ -72,19 +72,23 @@
                   stroke-width="1.5"
                   opacity="0.6"
                 >
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                  <path
+                    d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  />
                 </svg>
               </div>
             </div>
 
             <!-- 假图片 -->
-            <div v-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
+            <div v-else-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
               <svg v-if="!revealedMedia.has(msg.id)" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
                 <circle cx="8.5" cy="8.5" r="1.5"/>
                 <polyline points="21 15 16 10 5 21"/>
               </svg>
-              <p v-if="revealedMedia.has(msg.id)" class="media-description">{{ msg.media.description }}</p>
+              <p v-if="revealedMedia.has(msg.id)" class="media-description">{{ msg.media?.description }}</p>
               <p v-else class="media-tap-hint">点击查看</p>
             </div>
 
@@ -98,7 +102,7 @@
                   <span></span><span></span><span></span><span></span><span></span>
                 </div>
               </div>
-              <p v-else class="media-description">{{ msg.media.description }}</p>
+              <p v-else class="media-description">{{ msg.media?.description }}</p>
             </div>
 
             <!-- 普通文字 -->
@@ -1230,3 +1234,4 @@ watch(() => contextMenu.visible, (visible) => {
   opacity: 0;
 }
 </style>
+
