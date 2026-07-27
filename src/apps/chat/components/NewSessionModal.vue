@@ -35,12 +35,32 @@
         </div>
 
         <div v-else class="char-grid">
-         <div
-  v-for="char in characters"
-  :key="char.id"
-  :class="['char-card', { selected: selectedCharId === char.id }]"
-  @click="selectedCharId = char.id"
+        <div
+  v-for="item in characters"
+  :key="item.id"
+  :class="['char-card', { selected: selectedCharId === item.id }]"
+  @click="selectedCharId = item.id"
 >
+  <button
+    class="char-delete-btn"
+    type="button"
+    title="删除角色"
+    @click.stop="handleDeleteCharacter(item.id)"
+  >
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round" />
+      <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round" />
+    </svg>
+  </button>
+
+  <div class="char-avatar-small">
+    <img v-if="item.avatar" :src="item.avatar" alt="" />
+    <span v-else>{{ item.name.charAt(0) }}</span>
+  </div>
+
+  <span class="char-name-small">{{ item.name }}</span>
+</div>
+
   <button
     class="char-delete-btn"
     type="button"
@@ -365,9 +385,7 @@ async function startWithImported() {
   }
 }
 
-async function handleDeleteCharacter(id: string, e: Event) {
-  e.stopPropagation()
-
+async function handleDeleteCharacter(id: string) {
   const char = characters.value.find(c => c.id === id)
   if (!char) return
 
@@ -380,6 +398,7 @@ async function handleDeleteCharacter(id: string, e: Event) {
     selectedCharId.value = ''
   }
 }
+
 
 </script>
 
@@ -733,6 +752,7 @@ async function handleDeleteCharacter(id: string, e: Event) {
 .modal-leave-to .modal-content {
   transform: scale(0.95);
 }
+
 .char-card {
   position: relative;
 }
