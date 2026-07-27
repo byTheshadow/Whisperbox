@@ -35,55 +35,37 @@
         </div>
 
         <div v-else class="char-grid">
-        <div
-  v-for="item in characters"
-  :key="item.id"
-  :class="['char-card', { selected: selectedCharId === item.id }]"
-  @click="selectedCharId = item.id"
->
-  <button
-    class="char-delete-btn"
-    type="button"
-    title="删除角色"
-    @click.stop="handleDeleteCharacter(item.id)"
-  >
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round" />
-      <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round" />
-    </svg>
-  </button>
-
-  <div class="char-avatar-small">
-    <img v-if="item.avatar" :src="item.avatar" alt="" />
-    <span v-else>{{ item.name.charAt(0) }}</span>
-  </div>
-
-  <span class="char-name-small">{{ item.name }}</span>
-</div>
-
-  <button
-    class="char-delete-btn"
-    type="button"
-    title="删除角色"
-    @click="handleDeleteCharacter(char.id, $event)"
-  >
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round"/>
-      <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round"/>
-    </svg>
-  </button>
-  <div class="char-avatar-small">
-    <img v-if="char.avatar" :src="char.avatar" alt="" />
-    <span v-else>{{ char.name.charAt(0) }}</span>
-  </div>
-  <span class="char-name-small">{{ char.name }}</span>
-</div>
+          <div
+            v-for="item in characters"
+            :key="item.id"
+            :class="['char-card', { selected: selectedCharId === item.id }]"
+            @click="selectedCharId = item.id"
+          >
+            <button
+              class="char-delete-btn"
+              type="button"
+              title="删除角色"
+              @click.stop="handleDeleteCharacter(item.id)"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round" />
+                <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round" />
+              </svg>
+            </button>
 
             <div class="char-avatar-small">
-              <img v-if="char.avatar" :src="char.avatar" alt="" />
-              <span v-else>{{ char.name.charAt(0) }}</span>
+              <img v-if="item.avatar" :src="item.avatar" alt="" />
+              <span v-else>{{ item.name ? item.name.charAt(0) : '?' }}</span>
             </div>
-            <span class="char-name-small">{{ char.name }}</span>
+
+            <span class="char-name-small">{{ item.name }}</span>
           </div>
         </div>
 
@@ -132,12 +114,22 @@
             <div v-if="avatarMode === 'upload'" class="avatar-upload-area">
               <div class="avatar-preview-small" @click="triggerUpload">
                 <img v-if="newChar.avatar" :src="newChar.avatar" alt="" />
-                <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                  <circle cx="8.5" cy="8.5" r="1.5"/>
-                  <polyline points="21 15 16 10 5 21"/>
+                <svg
+                  v-else
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  opacity="0.4"
+                >
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                  <circle cx="8.5" cy="8.5" r="1.5" />
+                  <polyline points="21 15 16 10 5 21" />
                 </svg>
               </div>
+
               <input
                 ref="avatarFileInput"
                 type="file"
@@ -169,7 +161,9 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">关系阶段 <span class="optional">选填</span></label>
+          <label class="form-label">
+            关系阶段 <span class="optional">选填</span>
+          </label>
           <input
             v-model="newChar.scenario"
             type="text"
@@ -179,7 +173,9 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">附加设定 <span class="optional">选填</span></label>
+          <label class="form-label">
+            附加设定 <span class="optional">选填</span>
+          </label>
           <textarea
             v-model="newChar.additionalSettings"
             class="form-input form-textarea"
@@ -189,7 +185,22 @@
         </div>
 
         <div class="form-group">
-          <label class="form-label">第一条消息 <span class="optional">选填</span></label>
+          <label class="form-label">
+            世界书内容 <span class="optional">选填</span>
+          </label>
+          <textarea
+            v-model="newChar.worldBookContent"
+            class="form-input form-textarea"
+            placeholder="这个角色单独使用的世界设定、背景知识、触发规则等…"
+            rows="3"
+          ></textarea>
+          <p class="form-hint">目前会保存为角色附加设定的一部分，后续可迁移到独立世界书。</p>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">
+            第一条消息 <span class="optional">选填</span>
+          </label>
           <textarea
             v-model="newChar.firstMes"
             class="form-input form-textarea"
@@ -213,13 +224,37 @@
         <div class="form-group">
           <label class="form-label">选择 SillyTavern V2 角色卡 JSON 文件</label>
           <div class="file-drop-area" @click="triggerJsonUpload">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4">
-              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" stroke-linecap="round" stroke-linejoin="round"/>
-              <polyline points="17 8 12 3 7 8" stroke-linecap="round" stroke-linejoin="round"/>
-              <line x1="12" y1="3" x2="12" y2="15" stroke-linecap="round" stroke-linejoin="round"/>
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              opacity="0.4"
+            >
+              <path
+                d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <polyline
+                points="17 8 12 3 7 8"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+              <line
+                x1="12"
+                y1="3"
+                x2="12"
+                y2="15"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
             </svg>
             <p>点击选择文件</p>
           </div>
+
           <input
             ref="jsonFileInput"
             type="file"
@@ -230,9 +265,8 @@
         </div>
 
         <div v-if="importedChar" class="imported-preview">
-          <p class="imported-name">
-            已导入：{{ importedChar.name }}
-          </p>
+          <p class="imported-name">已导入：{{ importedChar.name }}</p>
+
           <button
             class="confirm-btn"
             type="button"
@@ -248,9 +282,16 @@
 
       <!-- 关闭 -->
       <button class="close-btn" type="button" @click="$emit('close')">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-          <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round"/>
-          <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round"/>
+        <svg
+          width="20"
+          height="20"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+        >
+          <line x1="18" y1="6" x2="6" y2="18" stroke-linecap="round" />
+          <line x1="6" y1="6" x2="18" y2="18" stroke-linecap="round" />
         </svg>
       </button>
     </div>
@@ -258,9 +299,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { db, type Character } from '@/core/db'
-import { createCharacter, importCharacterFromJson, getAllCharacters } from '../services/characterService'
+import {
+  createCharacter,
+  getAllCharacters,
+  importCharacterFromJson
+} from '../services/characterService'
 import { createSession } from '../services/chatService'
 
 const emit = defineEmits<{
@@ -284,25 +329,32 @@ const newChar = reactive({
   personality: '',
   scenario: '',
   additionalSettings: '',
+  worldBookContent: '',
   firstMes: ''
 })
 
 onMounted(async () => {
-  characters.value = await getAllCharacters()
+  await loadCharacters()
 
-  // 如果没有角色卡，默认显示创建模式
   if (characters.value.length === 0) {
     mode.value = 'create'
   }
 })
 
+async function loadCharacters() {
+  characters.value = await getAllCharacters()
+}
+
 function triggerUpload() {
   avatarFileInput.value?.click()
 }
 
-function handleAvatarUpload(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
+function handleAvatarUpload(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+
+  if (!file) {
+    return
+  }
 
   const reader = new FileReader()
   reader.onload = () => {
@@ -315,9 +367,12 @@ function triggerJsonUpload() {
   jsonFileInput.value?.click()
 }
 
-async function handleJsonImport(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
-  if (!file) return
+async function handleJsonImport(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
+
+  if (!file) {
+    return
+  }
 
   importError.value = ''
   importedChar.value = null
@@ -326,19 +381,28 @@ async function handleJsonImport(e: Event) {
     const text = await file.text()
     const character = await importCharacterFromJson(text)
     importedChar.value = character
-    characters.value = await getAllCharacters()
-  } catch (err: any) {
-    importError.value = err.message || '导入失败，请检查文件格式'
+    await loadCharacters()
+  } catch (error) {
+    importError.value = error instanceof Error
+      ? error.message
+      : '导入失败，请检查文件格式'
   }
 }
 
 async function getDefaultPersonaId(): Promise<string> {
-  const defaultPersona = await db.personas.where('isDefault').equals(1).first()
+  const defaultPersona = await db.personas
+    .where('isDefault')
+    .equals(1)
+    .first()
+
   return defaultPersona?.id || ''
 }
 
 async function startWithExisting() {
-  if (!selectedCharId.value) return
+  if (!selectedCharId.value) {
+    return
+  }
+
   creating.value = true
 
   try {
@@ -351,16 +415,28 @@ async function startWithExisting() {
 }
 
 async function createAndStart() {
-  if (!newChar.name.trim() || !newChar.personality.trim()) return
+  if (!newChar.name.trim() || !newChar.personality.trim()) {
+    return
+  }
+
   creating.value = true
 
   try {
+    const mergedAdditionalSettings = [
+      newChar.additionalSettings.trim(),
+      newChar.worldBookContent.trim()
+        ? `[世界书内容]\n${newChar.worldBookContent.trim()}`
+        : ''
+    ]
+      .filter(Boolean)
+      .join('\n\n')
+
     const character = await createCharacter({
       name: newChar.name.trim(),
       avatar: newChar.avatar.trim(),
       personality: newChar.personality.trim(),
       scenario: newChar.scenario.trim(),
-      additionalSettings: newChar.additionalSettings.trim(),
+      additionalSettings: mergedAdditionalSettings,
       firstMes: newChar.firstMes.trim()
     })
 
@@ -373,7 +449,10 @@ async function createAndStart() {
 }
 
 async function startWithImported() {
-  if (!importedChar.value) return
+  if (!importedChar.value) {
+    return
+  }
+
   creating.value = true
 
   try {
@@ -386,33 +465,44 @@ async function startWithImported() {
 }
 
 async function handleDeleteCharacter(id: string) {
-  const char = characters.value.find(c => c.id === id)
-  if (!char) return
+  const character = characters.value.find(item => item.id === id)
 
-  if (!window.confirm(`确定删除角色「${char.name}」吗？相关对话不会被删除。`)) return
+  if (!character) {
+    return
+  }
+
+  const confirmed = window.confirm(
+    `确定删除角色「${character.name}」吗？相关对话不会被删除。`
+  )
+
+  if (!confirmed) {
+    return
+  }
 
   await db.characters.delete(id)
-  characters.value = await getAllCharacters()
+  await loadCharacters()
 
   if (selectedCharId.value === id) {
     selectedCharId.value = ''
   }
+
+  if (characters.value.length === 0) {
+    mode.value = 'create'
+  }
 }
-
-
 </script>
 
 <style scoped>
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.75);
-  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
   padding: 20px;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
 }
 
 .modal-content {
@@ -428,10 +518,10 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .modal-title {
+  margin-bottom: 20px;
   font-family: 'Cinzel', 'Noto Serif SC', serif;
   font-size: 18px;
   font-weight: 600;
-  margin-bottom: 20px;
 }
 
 .close-btn {
@@ -443,11 +533,11 @@ async function handleDeleteCharacter(id: string) {
   justify-content: center;
   width: 32px;
   height: 32px;
+  color: rgba(245, 245, 245, 0.5);
+  cursor: pointer;
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: rgba(245, 245, 245, 0.5);
-  cursor: pointer;
   transition: color 0.2s;
 }
 
@@ -455,12 +545,11 @@ async function handleDeleteCharacter(id: string) {
   color: rgba(245, 245, 245, 0.9);
 }
 
-/* Mode tabs */
 .mode-tabs {
   display: flex;
   gap: 4px;
-  margin-bottom: 20px;
   padding: 4px;
+  margin-bottom: 20px;
   background: rgba(0, 0, 0, 0.3);
   border-radius: 10px;
 }
@@ -471,10 +560,10 @@ async function handleDeleteCharacter(id: string) {
   font-family: inherit;
   font-size: 13px;
   color: rgba(245, 245, 245, 0.5);
+  cursor: pointer;
   background: transparent;
   border: none;
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -487,31 +576,30 @@ async function handleDeleteCharacter(id: string) {
   color: rgba(245, 245, 245, 0.7);
 }
 
-/* Panel */
 .mode-panel {
   min-height: 200px;
 }
 
-/* Character grid */
 .char-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
   gap: 10px;
-  margin-bottom: 20px;
   max-height: 240px;
+  margin-bottom: 20px;
   overflow-y: auto;
 }
 
 .char-card {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 8px;
   padding: 12px 8px;
+  cursor: pointer;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 10px;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -520,22 +608,48 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .char-card.selected {
-  border-color: rgba(245, 245, 245, 0.5);
   background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(245, 245, 245, 0.5);
 }
 
-.char-avatar-small {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
+.char-delete-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 20px;
+  height: 20px;
+  color: rgba(245, 245, 245, 0.5);
+  cursor: pointer;
+  opacity: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 50%;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.char-card:hover .char-delete-btn {
+  opacity: 1;
+}
+
+.char-delete-btn:hover {
+  color: #e57373;
+}
+
+.char-avatar-small {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  overflow: hidden;
   font-family: 'Cinzel', serif;
   font-size: 16px;
   color: rgba(245, 245, 245, 0.5);
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 50%;
 }
 
 .char-avatar-small img {
@@ -545,23 +659,22 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .char-name-small {
+  max-width: 100%;
+  overflow: hidden;
   font-size: 12px;
   color: rgba(245, 245, 245, 0.7);
   text-align: center;
-  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
 }
 
 .empty-chars {
-  text-align: center;
   padding: 40px 0;
-  color: rgba(245, 245, 245, 0.4);
   font-size: 14px;
+  color: rgba(245, 245, 245, 0.4);
+  text-align: center;
 }
 
-/* Form */
 .form-group {
   margin-bottom: 16px;
 }
@@ -601,8 +714,14 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .form-textarea {
-  resize: vertical;
   min-height: 60px;
+  resize: vertical;
+}
+
+.form-hint {
+  margin-top: 6px;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.35);
 }
 
 .form-error {
@@ -611,7 +730,6 @@ async function handleDeleteCharacter(id: string) {
   color: #e57373;
 }
 
-/* Avatar input */
 .avatar-input-row {
   display: flex;
   align-items: flex-start;
@@ -629,17 +747,17 @@ async function handleDeleteCharacter(id: string) {
   font-family: inherit;
   font-size: 12px;
   color: rgba(245, 245, 245, 0.5);
+  cursor: pointer;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  cursor: pointer;
   transition: all 0.2s;
 }
 
 .mode-btn-small.active {
   color: rgba(245, 245, 245, 0.95);
-  border-color: rgba(255, 255, 255, 0.3);
   background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(255, 255, 255, 0.3);
 }
 
 .avatar-upload-area {
@@ -649,16 +767,16 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .avatar-preview-small {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
   transition: border-color 0.2s;
 }
 
@@ -680,7 +798,6 @@ async function handleDeleteCharacter(id: string) {
   display: none;
 }
 
-/* File drop */
 .file-drop-area {
   display: flex;
   flex-direction: column;
@@ -688,9 +805,9 @@ async function handleDeleteCharacter(id: string) {
   justify-content: center;
   gap: 10px;
   padding: 30px;
+  cursor: pointer;
   border: 1px dashed rgba(255, 255, 255, 0.15);
   border-radius: 12px;
-  cursor: pointer;
   transition: border-color 0.2s;
 }
 
@@ -703,22 +820,20 @@ async function handleDeleteCharacter(id: string) {
   color: rgba(245, 245, 245, 0.5);
 }
 
-/* Import preview */
 .imported-preview {
-  margin-top: 16px;
   padding: 14px;
+  margin-top: 16px;
   background: rgba(129, 199, 132, 0.08);
   border: 1px solid rgba(129, 199, 132, 0.2);
   border-radius: 10px;
 }
 
 .imported-name {
-  font-size: 14px;
   margin-bottom: 12px;
+  font-size: 14px;
   color: rgba(245, 245, 245, 0.8);
 }
 
-/* Confirm button */
 .confirm-btn {
   width: 100%;
   padding: 12px;
@@ -726,10 +841,10 @@ async function handleDeleteCharacter(id: string) {
   font-family: inherit;
   font-size: 14px;
   color: #080808;
+  cursor: pointer;
   background: rgba(245, 245, 245, 0.92);
   border: none;
   border-radius: 8px;
-  cursor: pointer;
   transition: all 0.2s ease;
 }
 
@@ -738,49 +853,8 @@ async function handleDeleteCharacter(id: string) {
 }
 
 .confirm-btn:disabled {
-  opacity: 0.4;
   cursor: not-allowed;
+  opacity: 0.4;
 }
-
-/* Modal transition */
-.modal-enter-active .modal-content,
-.modal-leave-active .modal-content {
-  transition: transform 0.2s ease;
-}
-
-.modal-enter-from .modal-content,
-.modal-leave-to .modal-content {
-  transform: scale(0.95);
-}
-
-.char-card {
-  position: relative;
-}
-
-.char-delete-btn {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  width: 20px;
-  height: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.6);
-  border: none;
-  border-radius: 50%;
-  color: rgba(245, 245, 245, 0.5);
-  cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.2s, color 0.2s;
-}
-
-.char-card:hover .char-delete-btn {
-  opacity: 1;
-}
-
-.char-delete-btn:hover {
-  color: #e57373;
-}
-
 </style>
+
