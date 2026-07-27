@@ -497,7 +497,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, watch, computed } from 'vue'
+import { startProactiveScheduler, stopProactiveScheduler } from './services/proactiveService'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, watch, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   db,
@@ -647,10 +648,16 @@ onMounted(async () => {
   proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
   proactiveForm.notify = Boolean(session.value.proactiveNotify)
 
-  await loadMessages()
+    await loadMessages()
   await loadStickers()
   scrollToBottom()
+
+  startProactiveScheduler()
 })
+onBeforeUnmount(() => {
+  stopProactiveScheduler()
+})
+
 
 async function loadMessages() {
   const raw = await getSessionMessages(sessionId)
