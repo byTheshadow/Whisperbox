@@ -54,6 +54,29 @@
             @contextmenu.prevent="openContextMenu($event, msg)"
             @click.long="openContextMenu($event, msg)"
           >
+            <!-- 表情包 -->
+            <div v-else-if="msg.media?.type === 'sticker'" class="media-sticker">
+              <img
+                v-if="msg.media.url"
+                :src="msg.media.url"
+                alt=""
+                class="sticker-image"
+              />
+              <div v-else class="sticker-fallback">
+                <svg
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  opacity="0.6"
+                >
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </div>
+            </div>
+
             <!-- 假图片 -->
             <div v-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
               <svg v-if="!revealedMedia.has(msg.id)" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.6">
@@ -819,6 +842,31 @@ watch(() => contextMenu.visible, (visible) => {
 .media-bubble {
   padding: 0 !important;
   overflow: hidden;
+}
+
+.media-sticker {
+  width: 140px;
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.sticker-image {
+  max-width: 100%;
+  max-height: 180px;
+  object-fit: contain;
+  display: block;
+}
+
+.sticker-fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 80px;
+  color: rgba(245, 245, 245, 0.5);
 }
 
 .media-image {

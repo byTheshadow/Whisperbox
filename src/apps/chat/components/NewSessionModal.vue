@@ -28,6 +28,37 @@
         </button>
       </div>
 
+      <!-- 你的身份 / 人设 -->
+      <div class="form-group">
+        <label class="form-label">你的身份 / 人设</label>
+        <select v-model="selectedPersonaId" class="form-input">
+          <option v-for="p in personas" :key="p.id" :value="p.id">
+            {{ p.name }}{{ p.isRealUser ? '（真实user）' : '' }}
+          </option>
+        </select>
+      </div>
+
+      <!-- 对话模式 -->
+      <div class="form-group">
+        <label class="form-label">对话模式</label>
+        <div class="mode-toggle">
+          <button
+            type="button"
+            :class="['mode-btn-small', { active: sessionMode === 'daily' }]"
+            @click="sessionMode = 'daily'"
+          >
+            日常模式
+          </button>
+          <button
+            type="button"
+            :class="['mode-btn-small', { active: sessionMode === 'roleplay' }]"
+            @click="sessionMode = 'roleplay'"
+          >
+            RP模式
+          </button>
+        </div>
+      </div>
+
       <!-- 选择已有角色 -->
       <div v-if="mode === 'select'" class="mode-panel">
         <div v-if="characters.length === 0" class="empty-chars">
@@ -300,7 +331,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue'
-import { db, type Character } from '@/core/db'
+import { db, type Character, type Persona } from '@/core/db'
 import {
   createCharacter,
   getAllCharacters,
@@ -322,6 +353,9 @@ const importError = ref('')
 const avatarMode = ref<'upload' | 'url'>('upload')
 const avatarFileInput = ref<HTMLInputElement | null>(null)
 const jsonFileInput = ref<HTMLInputElement | null>(null)
+const personas = ref<Persona[]>([])
+const selectedPersonaId = ref('')
+const sessionMode = ref<'daily' | 'roleplay'>('roleplay')
 
 const newChar = reactive({
   name: '',
@@ -334,7 +368,7 @@ const newChar = reactive({
 })
 
 onMounted(async () => {
-  await loadCharacters()
+  await Promise.all([loadCharacters(), loadPersonas()])
 
   if (characters.value.length === 0) {
     mode.value = 'create'
@@ -343,6 +377,15 @@ onMounted(async () => {
 
 async function loadCharacters() {
   characters.value = await getAllCharacters()
+}
+
+async function loadPersonas() {
+  personas.value = await db.personas.orderBy('createdAt').reverse().toArray()
+  const defaultPersona = personas.value.find(p => p.isDefault) || personas.value[0]
+
+  if (defaultPersona) {
+    selectedPersonaId.value = defaultPersona.id
+  }
 }
 
 function triggerUpload() {
@@ -389,15 +432,6 @@ async function handleJsonImport(event: Event) {
   }
 }
 
-async function getDefaultPersonaId(): Promise<string> {
-  const defaultPersona = await db.personas
-    .where('isDefault')
-    .equals(1)
-    .first()
-
-  return defaultPersona?.id || ''
-}
-
 async function startWithExisting() {
   if (!selectedCharId.value) {
     return
@@ -406,8 +440,8 @@ async function startWithExisting() {
   creating.value = true
 
   try {
-    const personaId = await getDefaultPersonaId()
-    const session = await createSession(selectedCharId.value, personaId)
+    const personaId = selectedPersonaId.value
+    const session = await createSession(selectedCharId.value, personaId, sessionMode.value)
     emit('created', session.id)
   } finally {
     creating.value = false
@@ -440,8 +474,8 @@ async function createAndStart() {
       firstMes: newChar.firstMes.trim()
     })
 
-    const personaId = await getDefaultPersonaId()
-    const session = await createSession(character.id, personaId)
+    const personaId = selectedPersonaId.value
+    const session = await createSession(character.id, personaId, sessionMode.value)
     emit('created', session.id)
   } finally {
     creating.value = false
@@ -456,8 +490,8 @@ async function startWithImported() {
   creating.value = true
 
   try {
-    const personaId = await getDefaultPersonaId()
-    const session = await createSession(importedChar.value.id, personaId)
+    const personaId = selectedPersonaId.value
+    const session = await createSession(importedChar.value.id, personaId, sessionMode.value)
     emit('created', session.id)
   } finally {
     creating.value = false
@@ -578,6 +612,11 @@ async function handleDeleteCharacter(id: string) {
 
 .mode-panel {
   min-height: 200px;
+}
+
+.mode-toggle {
+  display: flex;
+  gap: 8px;
 }
 
 .char-grid {
@@ -857,4 +896,3 @@ async function handleDeleteCharacter(id: string) {
   opacity: 0.4;
 }
 </style>
-

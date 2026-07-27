@@ -40,9 +40,11 @@ export interface Message {
   role: 'user' | 'assistant' | 'system'
   content: string
   media?: {
-    type: 'image' | 'voice'
+    type: 'image' | 'voice' | 'sticker'
     description: string
     url: string
+    name?: string
+    meaning?: string
   }
   isEdited: boolean
   timestamp: number
@@ -58,6 +60,8 @@ export interface ChatSession {
   wallpaper: string
   bubbleStyle: string
   realUserDiary: string
+  memorySummarizeEveryN: number
+  memoryEnabled: boolean
   lastMessageAt: number
   createdAt: number
 }
@@ -90,8 +94,32 @@ export interface MemoryEntry {
   sessionId: string
   type: 'summary' | 'event' | 'diary' | 'custom'
   content: string
+  isPermanent: boolean
   importance: number
   tags: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+/** 全局表情包条目 */
+export interface StickerItem {
+  id: string
+  packId: string
+  name: string
+  url: string
+  description: string
+  meaning: string
+  triggerWords: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+/** 全局表情包包 */
+export interface StickerPack {
+  id: string
+  name: string
+  description: string
+  isEnabled: boolean
   createdAt: number
   updatedAt: number
 }
@@ -173,23 +201,27 @@ export class WhisperboxDB extends Dexie {
   worldBooks!: Table<WorldBook>
   todoItems!: Table<TodoItem>
   noteEntries!: Table<NoteEntry>
+  stickerPacks!: Table<StickerPack>
+  stickerItems!: Table<StickerItem>
   appSettings!: Table<AppSettings>
 
   constructor() {
     super('whisperbox')
 
-    this.version(2).stores({
+    this.version(3).stores({
       characters: 'id, name, createdAt',
       personas: 'id, name, isDefault, isRealUser',
       messages: 'id, sessionId, timestamp, role',
-      chatSessions: 'id, characterId, mode, lastMessageAt, createdAt',
+      chatSessions: 'id, characterId, personaId, mode, lastMessageAt, createdAt',
       whisperCards: 'id, libraryId, *triggerWords',
       cardLibraries: 'id, name, *boundCharacterIds',
-      memoryEntries: 'id, characterId, sessionId, type, importance, createdAt',
+      memoryEntries: 'id, characterId, sessionId, type, importance, createdAt, isPermanent',
       worldBookEntries: 'id, worldBookId, *key, isEnabled',
       worldBooks: 'id, characterId',
       todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
       noteEntries: 'id, owner, exposeToMemory, updatedAt',
+      stickerPacks: 'id, isEnabled, createdAt',
+      stickerItems: 'id, packId, *triggerWords, createdAt',
       appSettings: 'id'
     })
   }
