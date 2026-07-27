@@ -423,11 +423,18 @@ const newChar = reactive({
  */
 const availablePersonas = computed(() => {
   if (sessionMode.value === 'daily') {
-    return personas.value.filter(persona => persona.isRealUser)
+    const realUsers = personas.value.filter(persona => persona.isRealUser)
+
+    // 兜底：如果旧数据没有真实 user 标记，不让列表空掉
+    if (realUsers.length > 0) return realUsers
+
+    const defaultPersona = personas.value.find(persona => persona.isDefault)
+    return defaultPersona ? [defaultPersona] : personas.value.slice(0, 1)
   }
 
   return personas.value
 })
+
 
 onMounted(async () => {
   await Promise.all([
@@ -445,13 +452,38 @@ async function loadCharacters() {
 }
 
 async function loadPersonas() {
-  personas.value = await db.personas
-    .orderBy('createdAt')
-    .reverse()
-    .toArray()
+  const raw = await db.personas.toArray()
+
+  personas.value = raw
+    .map(persona => ({
+      ...persona,
+      avatar: persona.avatar || '',
+      description: persona.description || '',
+      isDefault: Boolean(persona.isDefault),
+      isRealUser: Boolean(persona.isRealUser),
+      createdAt: persona.createdAt || Date.now()
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt)
+
+  // 如果没有任何真实 user，但存在 persona，则自动把默认/第一个视为可选，避免 daily 空掉
+  if (!personas.value.some(persona => persona.isRealUser) && personas.value.length > 0) {
+    const fallback = personas.value.find(persona => persona.isDefault) || personas.value[0]
+
+    await db.personas.update(fallback.id, {
+      isRealUser: true,
+      isDefault: true
+    })
+
+    personas.value = personas.value.map(persona =>
+      persona.id === fallback.id
+        ? { ...persona, isRealUser: true, isDefault: true }
+        : persona
+    )
+  }
 
   syncPersonaForCurrentMode()
 }
+
 
 /**
  * 切换模式时重新保证当前选择的人设有效。
@@ -465,9 +497,7 @@ function selectSessionMode(nextMode: 'daily' | 'roleplay') {
 }
 
 function syncPersonaForCurrentMode() {
-  const options = sessionMode.value === 'daily'
-    ? personas.value.filter(persona => persona.isRealUser)
-    : personas.value
+  const options = availablePersonas.value
 
   if (options.some(persona => persona.id === selectedPersonaId.value)) {
     return
@@ -477,8 +507,8 @@ function syncPersonaForCurrentMode() {
   const realUserPersona = options.find(persona => persona.isRealUser)
 
   selectedPersonaId.value = (
-    defaultPersona?.id ||
     realUserPersona?.id ||
+    defaultPersona?.id ||
     options[0]?.id ||
     ''
   )

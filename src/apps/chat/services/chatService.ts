@@ -18,10 +18,14 @@ export async function createSession(
     mode,
     title: character?.name || '新对话',
     wallpaper: '',
-    bubbleStyle: '',
+    bubbleStyle: 'classic',
     realUserDiary: '',
     memorySummarizeEveryN: 20,
     memoryEnabled: true,
+    proactiveEnabled: false,
+    proactiveFrequencyMinutes: 120,
+    proactiveNotify: false,
+    lastProactiveAt: null,
     lastMessageAt: now,
     createdAt: now
   }
@@ -107,6 +111,43 @@ export async function deleteSession(sessionId: string): Promise<void> {
 }
 
 /**
+ * 构建现实时间上下文
+ */
+function buildRealTimeContext(): string {
+  const now = new Date()
+
+  const dateText = now.toLocaleDateString('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long'
+  })
+
+  const timeText = now.toLocaleTimeString('zh-CN', {
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+
+  const hour = now.getHours()
+
+  let period = '白天'
+  if (hour >= 5 && hour < 9) period = '清晨'
+  else if (hour >= 9 && hour < 12) period = '上午'
+  else if (hour >= 12 && hour < 14) period = '中午'
+  else if (hour >= 14 && hour < 18) period = '下午'
+  else if (hour >= 18 && hour < 23) period = '夜晚'
+  else period = '深夜'
+
+  return `[现实时间]
+当前日期：${dateText}
+当前时间：${timeText}
+当前时段：${period}
+
+你可以自然地感知当前现实时间，例如早安、晚安、深夜关心、日期相关提醒等。
+不要每条消息都机械地提及时间，只有在语境自然或有帮助时使用。`
+}
+
+/**
  * 构建发送给 API 的消息数组
  * 支持：
  * - 根据会话模式区别 prompt
@@ -135,6 +176,8 @@ export async function buildApiMessages(
       systemPrompt += `\n\n场景：${character.scenario}`
     }
   }
+
+  systemPrompt += `\n\n${buildRealTimeContext()}`
 
   if (personaDescription) {
     if (session?.mode === 'daily') {
@@ -166,6 +209,8 @@ ${personaDescription}
   }
 
   for (const msg of messages) {
+    // 数据库中保存的 system 消息不作为历史对话发送给 API。
+    // 主动消息触发指令通过 sendProactiveReply 直接追加至 apiMessages。
     if (msg.role === 'system') continue
 
     let content = msg.content || ''
@@ -313,7 +358,55 @@ export async function sendAndGetReply(
   const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
   const replyContent = await callApi(apiMessages)
 
-  // 解析 AI 回复
+  const segments = parseAiReply(replyContent)
+  const resultMessages: Message[] = []
+
+  for (const segment of segments) {
+    if (segment.type === 'text') {
+      const msg = await addMessage(sessionId, 'assistant', segment.content)
+      resultMessages.push(msg)
+    } else {
+      const msg = await addMessage(sessionId, 'assistant', '', {
+        type: segment.type,
+        description: segment.content,
+        url: segment.url || '',
+        name: segment.name,
+        meaning: segment.meaning
+      })
+      resultMessages.push(msg)
+    }
+  }
+
+  return resultMessages
+}
+
+/**
+ * 主动触发角色发送消息并获取 AI 回复
+ *
+ * 主动触发指令直接加入 API 消息数组，而不是写入数据库 system 消息，
+ * 避免被 buildApiMessages 中跳过 system 历史消息的逻辑过滤。
+ */
+export async function sendProactiveReply(
+  sessionId: string,
+  characterId: string,
+  personaDescription: string
+): Promise<Message[]> {
+  const character = await db.characters.get(characterId)
+  const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
+
+  apiMessages.push({
+    role: 'system',
+    content: `[主动消息触发]
+现在请由角色主动发来一条自然的消息。
+要求：
+- 不要说“系统让我发消息”
+- 不要提到“主动消息触发”
+- 结合当前现实时间、双方关系、角色性格
+- 日常模式可以更像短信问候或关心
+- RP 模式可以像剧情内的来信、敲门、传讯或场景推进`
+  })
+
+  const replyContent = await callApi(apiMessages)
   const segments = parseAiReply(replyContent)
   const resultMessages: Message[] = []
 

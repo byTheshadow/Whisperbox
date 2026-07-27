@@ -65,6 +65,11 @@ export interface ChatSession {
   memoryEnabled: boolean
   lastMessageAt: number
   createdAt: number
+  proactiveEnabled: boolean
+proactiveFrequencyMinutes: number
+proactiveNotify: boolean
+lastProactiveAt: number | null
+
 }
 
 /** 全局表情包库 */

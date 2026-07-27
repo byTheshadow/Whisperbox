@@ -1,3 +1,4 @@
+
 <template>
   <div class="chat-session-container" :style="sessionWallpaperStyle">
     <!-- 顶部栏（固定） -->
@@ -36,6 +37,8 @@
       <Transition name="fade">
         <div v-if="showSessionMenu" class="session-menu">
           <button class="menu-item" type="button" @click="handleSetWallpaper">设置壁纸</button>
+          <button class="menu-item" type="button" @click="showBubbleStyleModal = true; showSessionMenu = false">气泡样式</button>
+          <button class="menu-item" type="button" @click="showProactiveModal = true; showSessionMenu = false">主动消息设置</button>
           <button class="menu-item" type="button" @click="handleClearMessages">清空聊天记录</button>
           <button class="menu-item danger" type="button" @click="handleDeleteSession">删除对话</button>
         </div>
@@ -63,9 +66,12 @@
 
           <!-- 消息气泡 -->
           <div
-            :class="['msg-bubble', msg.role, { 'media-bubble': msg.media }]"
-            @contextmenu.prevent="openContextMenu($event, msg)"
-            @click.long="openContextMenu($event, msg)"
+            :class="[
+              'msg-bubble',
+              msg.role,
+              bubbleStyleClass,
+              { 'media-bubble': msg.media }
+            ]"
           >
             <!-- 图片 -->
             <div v-if="msg.media?.type === 'image'" class="media-image" @click="toggleMediaReveal(msg.id)">
@@ -220,6 +226,97 @@
         </div>
       </div>
     </div>
+
+    <!-- 气泡样式设置 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showBubbleStyleModal" class="modal-overlay" @click.self="showBubbleStyleModal = false">
+          <div class="mini-modal">
+            <h4 class="mini-modal-title">气泡样式</h4>
+
+            <div class="bubble-style-list">
+              <button
+                v-for="item in bubbleStyleOptions"
+                :key="item.value"
+                type="button"
+                :class="['bubble-style-option', { active: (session?.bubbleStyle || 'classic') === item.value }]"
+                @click="saveBubbleStyle(item.value)"
+              >
+                <span class="bubble-style-name">{{ item.label }}</span>
+                <span class="bubble-style-desc">{{ item.description }}</span>
+              </button>
+            </div>
+
+            <div class="mini-modal-actions">
+              <button class="modal-btn secondary" type="button" @click="showBubbleStyleModal = false">
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
+    <!-- 主动消息设置 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showProactiveModal" class="modal-overlay" @click.self="showProactiveModal = false">
+          <div class="mini-modal">
+            <h4 class="mini-modal-title">主动消息设置</h4>
+
+            <label class="setting-row">
+              <span>
+                <strong>允许角色主动发消息</strong>
+                <small>页面打开时，角色可以根据频率主动传讯。</small>
+              </span>
+              <input v-model="proactiveForm.enabled" type="checkbox" />
+            </label>
+
+            <div class="form-group">
+              <label class="form-label">频率</label>
+              <select v-model.number="proactiveForm.frequencyMinutes" class="form-input">
+                <option :value="30">约每 30 分钟</option>
+                <option :value="60">约每 1 小时</option>
+                <option :value="120">约每 2 小时</option>
+                <option :value="360">约每 6 小时</option>
+                <option :value="720">约每 12 小时</option>
+                <option :value="1440">约每天</option>
+              </select>
+            </div>
+
+            <label class="setting-row">
+              <span>
+                <strong>允许系统通知</strong>
+                <small>浏览器会请求通知权限；PWA/桌面端效果更好。</small>
+              </span>
+              <input v-model="proactiveForm.notify" type="checkbox" />
+            </label>
+
+            <p class="setting-note">
+              注：静态网页无法保证关闭页面后仍后台运行。若安装为 PWA 或未来使用 Tauri 桌面端，主动通知会更稳定。
+            </p>
+
+            <div class="mini-modal-actions">
+              <button
+                class="modal-btn secondary"
+                type="button"
+                :disabled="aiLoading"
+                @click="triggerProactiveNow"
+              >
+                立即触发一次
+              </button>
+
+              <button class="modal-btn secondary" type="button" @click="showProactiveModal = false">
+                取消
+              </button>
+              <button class="modal-btn primary" type="button" @click="saveProactiveSettings">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
 
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
@@ -414,6 +511,8 @@ import {
   getSessionMessages,
   sendAndGetReply,
   rerollMessage
+  sendProactiveReply
+
 } from './services/chatService'
 import {
   addSticker,
@@ -447,6 +546,40 @@ const quotedMessage = ref<Message | null>(null)
 const revealedMedia = reactive(new Set<string>())
 const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
+const showBubbleStyleModal = ref(false)
+const showProactiveModal = ref(false)
+const bubbleStyleOptions = [
+  {
+    value: 'classic',
+    label: '经典玻璃',
+    description: '默认黑白毛玻璃气泡'
+  },
+  {
+    value: 'soft',
+    label: '柔和雾面',
+    description: '更轻、更圆润'
+  },
+  {
+    value: 'sharp',
+    label: '锐利边框',
+    description: '更冷、更清晰'
+  },
+  {
+    value: 'paper',
+    label: '纸片感',
+    description: '像便签纸一样的低饱和气泡'
+  },
+  {
+    value: 'transparent',
+    label: '透明低干扰',
+    description: '弱化气泡背景，适合壁纸'
+  }
+]
+const proactiveForm = reactive({
+  enabled: false,
+  frequencyMinutes: 120,
+  notify: false
+})
 
 const stickers = ref<StickerItem[]>([])
 const newSticker = reactive({
@@ -488,6 +621,11 @@ const typingIndicatorText = computed(() => {
   return '对方正在输入'
 })
 
+const bubbleStyleClass = computed(() => {
+  const style = session.value?.bubbleStyle || 'classic'
+  return `bubble-style-${style}`
+})
+
 onMounted(async () => {
   session.value = await db.chatSessions.get(sessionId) || null
 
@@ -503,6 +641,10 @@ onMounted(async () => {
   }
 
   wallpaperInput.value = session.value.wallpaper || ''
+
+  proactiveForm.enabled = Boolean(session.value.proactiveEnabled)
+  proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
+  proactiveForm.notify = Boolean(session.value.proactiveNotify)
 
   await loadMessages()
   await loadStickers()
@@ -810,13 +952,95 @@ async function saveWallpaper() {
   showWallpaperInput.value = false
 }
 
-// 删除对话
-async function handleDeleteSession() {
-  if (!window.confirm('确定删除这个对话？所有消息将被清除。')) return
+async function saveBubbleStyle(style: string) {
+  if (!session.value) return
 
-  await db.messages.where('sessionId').equals(sessionId).delete()
-  await db.chatSessions.delete(sessionId)
-  router.push('/chat')
+  await db.chatSessions.update(sessionId, {
+    bubbleStyle: style
+  })
+
+  session.value = {
+    ...session.value,
+    bubbleStyle: style
+  }
+
+  showBubbleStyleModal.value = false
+}
+
+async function saveProactiveSettings() {
+  if (!session.value) return
+
+  let notify = proactiveForm.notify
+
+  if (notify && 'Notification' in window) {
+    const permission = await Notification.requestPermission()
+    notify = permission === 'granted'
+  } else {
+    notify = false
+  }
+
+  await db.chatSessions.update(sessionId, {
+    proactiveEnabled: proactiveForm.enabled,
+    proactiveFrequencyMinutes: proactiveForm.frequencyMinutes,
+    proactiveNotify: notify
+  })
+
+  session.value = {
+    ...session.value,
+    proactiveEnabled: proactiveForm.enabled,
+    proactiveFrequencyMinutes: proactiveForm.frequencyMinutes,
+    proactiveNotify: notify
+  }
+
+  proactiveForm.notify = notify
+  showProactiveModal.value = false
+}
+
+async function triggerProactiveNow() {
+  if (!session.value || aiLoading.value) return
+
+  aiLoading.value = true
+  showProactiveModal.value = false
+  scrollToBottom()
+
+  try {
+    const persona = session.value.personaId
+      ? await db.personas.get(session.value.personaId)
+      : null
+
+    // 插入一条 system 消息作为后台触发信号，不展示也可以之后改成不入库
+    const replyMessages = await sendProactiveReply(
+  sessionId,
+  session.value.characterId,
+  persona?.description || ''
+)
+
+    for (const msg of replyMessages) {
+      messages.value.push({ ...msg })
+    }
+
+    await db.chatSessions.update(sessionId, {
+      lastProactiveAt: Date.now()
+    })
+
+    if (session.value.proactiveNotify && 'Notification' in window && Notification.permission === 'granted') {
+      new Notification(character.value?.name || 'Whisperbox', {
+        body: replyMessages[0]?.content || '你收到了一条新消息'
+      })
+    }
+
+    scrollToBottom()
+  } catch (err: any) {
+    const errorMsg = await addMessage(
+      sessionId,
+      'system',
+      `[主动消息失败] ${err.message || '未知错误'}`
+    )
+    messages.value.push({ ...errorMsg })
+    scrollToBottom()
+  } finally {
+    aiLoading.value = false
+  }
 }
 
 function resetTextarea() {
@@ -843,6 +1067,8 @@ watch(() => contextMenu.visible, (visible) => {
   }
 })
 </script>
+
+
 
 <style scoped>
 .chat-session-container {
@@ -1662,4 +1888,149 @@ watch(() => contextMenu.visible, (visible) => {
 .fade-leave-to {
   opacity: 0;
 }
+/* Bubble style modal */
+.bubble-style-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bubble-style-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 11px 12px;
+  color: rgba(245, 245, 245, 0.68);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.bubble-style-option:hover {
+  background: rgba(255, 255, 255, 0.055);
+}
+
+.bubble-style-option.active {
+  color: rgba(245, 245, 245, 0.95);
+  background: rgba(255, 255, 255, 0.085);
+  border-color: rgba(255, 255, 255, 0.36);
+}
+
+.bubble-style-name {
+  font-size: 14px;
+}
+
+.bubble-style-desc {
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+/* Bubble presets */
+.msg-bubble.bubble-style-classic.assistant {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.msg-bubble.bubble-style-classic.user {
+  background: rgba(245, 245, 245, 0.88);
+  color: #080808;
+}
+
+.msg-bubble.bubble-style-soft {
+  border-radius: 20px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.18);
+}
+
+.msg-bubble.bubble-style-soft.assistant {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.msg-bubble.bubble-style-soft.user {
+  background: rgba(245, 245, 245, 0.78);
+  color: #080808;
+}
+
+.msg-bubble.bubble-style-sharp {
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+.msg-bubble.bubble-style-sharp.assistant {
+  background: rgba(0, 0, 0, 0.42);
+}
+
+.msg-bubble.bubble-style-sharp.user {
+  background: rgba(245, 245, 245, 0.92);
+  color: #080808;
+}
+
+.msg-bubble.bubble-style-paper {
+  border-radius: 3px 14px 14px 14px;
+}
+
+.msg-bubble.bubble-style-paper.assistant {
+  color: rgba(245, 245, 245, 0.9);
+  background: rgba(245, 245, 245, 0.11);
+}
+
+.msg-bubble.bubble-style-paper.user {
+  color: #181818;
+  background: rgba(235, 232, 222, 0.9);
+}
+
+.msg-bubble.bubble-style-transparent {
+  background: rgba(0, 0, 0, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(10px);
+}
+
+.msg-bubble.bubble-style-transparent.user {
+  color: rgba(245, 245, 245, 0.92);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px;
+  margin-bottom: 10px;
+  color: rgba(245, 245, 245, 0.76);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+}
+
+.setting-row span {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-row strong {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.setting-row small {
+  font-size: 11px;
+  line-height: 1.45;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+.setting-row input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #f5f5f5;
+}
+
+.setting-note {
+  margin: 10px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(245, 245, 245, 0.38);
+}
+
+
 </style>
