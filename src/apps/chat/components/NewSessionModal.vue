@@ -3,6 +3,79 @@
     <div class="modal-content">
       <h3 class="modal-title">新建对话</h3>
 
+      <!-- 会话设置：无论选择、新建或导入角色，都会使用此设置 -->
+      <div class="session-setup">
+        <div class="setup-section">
+          <span class="setup-label">对话模式</span>
+
+          <div class="chat-mode-selector">
+            <button
+              type="button"
+              :class="['chat-mode-card', { active: sessionMode === 'daily' }]"
+              @click="selectSessionMode('daily')"
+            >
+              <span class="chat-mode-title">日常模式</span>
+              <span class="chat-mode-description">
+                短对话、真实陪伴，并记录与真实 user 有关的日记。
+              </span>
+            </button>
+
+            <button
+              type="button"
+              :class="['chat-mode-card', { active: sessionMode === 'roleplay' }]"
+              @click="selectSessionMode('roleplay')"
+            >
+              <span class="chat-mode-title">RP 模式</span>
+              <span class="chat-mode-description">
+                长篇角色扮演，不记录真实 user 的日记。
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <div class="setup-section">
+          <div class="setup-label-row">
+            <span class="setup-label">
+              {{ sessionMode === 'daily' ? '真实 user 身份' : '你使用的人设' }}
+            </span>
+
+            <span v-if="sessionMode === 'daily'" class="setup-note">
+              日常模式固定使用真实 user
+            </span>
+          </div>
+
+          <div v-if="availablePersonas.length === 0" class="persona-empty">
+            尚未创建用户身份，请先前往「设置」创建。
+          </div>
+
+          <div v-else class="persona-list">
+            <button
+              v-for="persona in availablePersonas"
+              :key="persona.id"
+              type="button"
+              :class="['persona-option', { selected: selectedPersonaId === persona.id }]"
+              @click="selectedPersonaId = persona.id"
+            >
+              <div class="persona-avatar">
+                <img v-if="persona.avatar" :src="persona.avatar" alt="" />
+                <span v-else>{{ persona.name.charAt(0) || '?' }}</span>
+              </div>
+
+              <div class="persona-info">
+                <span class="persona-name">{{ persona.name }}</span>
+                <span class="persona-description">
+                  {{ persona.isRealUser ? '真实 user' : (persona.description || '角色扮演身份') }}
+                </span>
+              </div>
+
+              <span v-if="selectedPersonaId === persona.id" class="persona-selected-mark">
+                ✓
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- 模式切换 -->
       <div class="mode-tabs">
         <button
@@ -26,37 +99,6 @@
         >
           导入 JSON
         </button>
-      </div>
-
-      <!-- 你的身份 / 人设 -->
-      <div class="form-group">
-        <label class="form-label">你的身份 / 人设</label>
-        <select v-model="selectedPersonaId" class="form-input">
-          <option v-for="p in personas" :key="p.id" :value="p.id">
-            {{ p.name }}{{ p.isRealUser ? '（真实user）' : '' }}
-          </option>
-        </select>
-      </div>
-
-      <!-- 对话模式 -->
-      <div class="form-group">
-        <label class="form-label">对话模式</label>
-        <div class="mode-toggle">
-          <button
-            type="button"
-            :class="['mode-btn-small', { active: sessionMode === 'daily' }]"
-            @click="sessionMode = 'daily'"
-          >
-            日常模式
-          </button>
-          <button
-            type="button"
-            :class="['mode-btn-small', { active: sessionMode === 'roleplay' }]"
-            @click="sessionMode = 'roleplay'"
-          >
-            RP模式
-          </button>
-        </div>
       </div>
 
       <!-- 选择已有角色 -->
@@ -103,7 +145,7 @@
         <button
           class="confirm-btn"
           type="button"
-          :disabled="!selectedCharId || creating"
+          :disabled="!selectedCharId || !selectedPersonaId || creating"
           @click="startWithExisting"
         >
           {{ creating ? '创建中…' : '开始对话' }}
@@ -243,7 +285,12 @@
         <button
           class="confirm-btn"
           type="button"
-          :disabled="!newChar.name.trim() || !newChar.personality.trim() || creating"
+          :disabled="
+            !newChar.name.trim() ||
+            !newChar.personality.trim() ||
+            !selectedPersonaId ||
+            creating
+          "
           @click="createAndStart"
         >
           {{ creating ? '创建中…' : '创建角色并开始对话' }}
@@ -301,7 +348,7 @@
           <button
             class="confirm-btn"
             type="button"
-            :disabled="creating"
+            :disabled="!selectedPersonaId || creating"
             @click="startWithImported"
           >
             {{ creating ? '创建中…' : '开始对话' }}
@@ -330,7 +377,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { db, type Character, type Persona } from '@/core/db'
 import {
   createCharacter,
@@ -346,16 +393,19 @@ const emit = defineEmits<{
 
 const mode = ref<'select' | 'create' | 'import'>('select')
 const creating = ref(false)
+
 const characters = ref<Character[]>([])
+const personas = ref<Persona[]>([])
+
 const selectedCharId = ref('')
+const selectedPersonaId = ref('')
+const sessionMode = ref<'daily' | 'roleplay'>('daily')
+
 const importedChar = ref<Character | null>(null)
 const importError = ref('')
 const avatarMode = ref<'upload' | 'url'>('upload')
 const avatarFileInput = ref<HTMLInputElement | null>(null)
 const jsonFileInput = ref<HTMLInputElement | null>(null)
-const personas = ref<Persona[]>([])
-const selectedPersonaId = ref('')
-const sessionMode = ref<'daily' | 'roleplay'>('roleplay')
 
 const newChar = reactive({
   name: '',
@@ -367,8 +417,23 @@ const newChar = reactive({
   firstMes: ''
 })
 
+/**
+ * 日常模式只能使用真实 user 身份。
+ * RP 模式可使用全部人设，包括真实身份或专门创建的 RP 人设。
+ */
+const availablePersonas = computed(() => {
+  if (sessionMode.value === 'daily') {
+    return personas.value.filter(persona => persona.isRealUser)
+  }
+
+  return personas.value
+})
+
 onMounted(async () => {
-  await Promise.all([loadCharacters(), loadPersonas()])
+  await Promise.all([
+    loadCharacters(),
+    loadPersonas()
+  ])
 
   if (characters.value.length === 0) {
     mode.value = 'create'
@@ -380,12 +445,43 @@ async function loadCharacters() {
 }
 
 async function loadPersonas() {
-  personas.value = await db.personas.orderBy('createdAt').reverse().toArray()
-  const defaultPersona = personas.value.find(p => p.isDefault) || personas.value[0]
+  personas.value = await db.personas
+    .orderBy('createdAt')
+    .reverse()
+    .toArray()
 
-  if (defaultPersona) {
-    selectedPersonaId.value = defaultPersona.id
+  syncPersonaForCurrentMode()
+}
+
+/**
+ * 切换模式时重新保证当前选择的人设有效。
+ *
+ * - daily：优先选真实 user
+ * - roleplay：保留当前选择；若没有则优先默认人设
+ */
+function selectSessionMode(nextMode: 'daily' | 'roleplay') {
+  sessionMode.value = nextMode
+  syncPersonaForCurrentMode()
+}
+
+function syncPersonaForCurrentMode() {
+  const options = sessionMode.value === 'daily'
+    ? personas.value.filter(persona => persona.isRealUser)
+    : personas.value
+
+  if (options.some(persona => persona.id === selectedPersonaId.value)) {
+    return
   }
+
+  const defaultPersona = options.find(persona => persona.isDefault)
+  const realUserPersona = options.find(persona => persona.isRealUser)
+
+  selectedPersonaId.value = (
+    defaultPersona?.id ||
+    realUserPersona?.id ||
+    options[0]?.id ||
+    ''
+  )
 }
 
 function triggerUpload() {
@@ -395,14 +491,14 @@ function triggerUpload() {
 function handleAvatarUpload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
 
-  if (!file) {
-    return
-  }
+  if (!file) return
 
   const reader = new FileReader()
+
   reader.onload = () => {
     newChar.avatar = reader.result as string
   }
+
   reader.readAsDataURL(file)
 }
 
@@ -413,9 +509,7 @@ function triggerJsonUpload() {
 async function handleJsonImport(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
 
-  if (!file) {
-    return
-  }
+  if (!file) return
 
   importError.value = ''
   importedChar.value = null
@@ -423,6 +517,7 @@ async function handleJsonImport(event: Event) {
   try {
     const text = await file.text()
     const character = await importCharacterFromJson(text)
+
     importedChar.value = character
     await loadCharacters()
   } catch (error) {
@@ -432,24 +527,48 @@ async function handleJsonImport(event: Event) {
   }
 }
 
-async function startWithExisting() {
-  if (!selectedCharId.value) {
-    return
+/**
+ * 统一创建会话。
+ * 所有入口（已有角色、新角色、导入角色）都走这里，
+ * 保证 persona 和 daily / roleplay 模式不会漏传。
+ */
+async function startSession(characterId: string) {
+  if (!selectedPersonaId.value) {
+    throw new Error(
+      sessionMode.value === 'daily'
+        ? '日常模式需要先在设置中创建真实 user 身份'
+        : '请先在设置中创建或选择一个用户人设'
+    )
   }
+
+  return createSession(
+    characterId,
+    selectedPersonaId.value,
+    sessionMode.value
+  )
+}
+
+async function startWithExisting() {
+  if (!selectedCharId.value || !selectedPersonaId.value) return
 
   creating.value = true
 
   try {
-    const personaId = selectedPersonaId.value
-    const session = await createSession(selectedCharId.value, personaId, sessionMode.value)
+    const session = await startSession(selectedCharId.value)
     emit('created', session.id)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '创建对话失败')
   } finally {
     creating.value = false
   }
 }
 
 async function createAndStart() {
-  if (!newChar.name.trim() || !newChar.personality.trim()) {
+  if (
+    !newChar.name.trim() ||
+    !newChar.personality.trim() ||
+    !selectedPersonaId.value
+  ) {
     return
   }
 
@@ -474,25 +593,25 @@ async function createAndStart() {
       firstMes: newChar.firstMes.trim()
     })
 
-    const personaId = selectedPersonaId.value
-    const session = await createSession(character.id, personaId, sessionMode.value)
+    const session = await startSession(character.id)
     emit('created', session.id)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '创建对话失败')
   } finally {
     creating.value = false
   }
 }
 
 async function startWithImported() {
-  if (!importedChar.value) {
-    return
-  }
+  if (!importedChar.value || !selectedPersonaId.value) return
 
   creating.value = true
 
   try {
-    const personaId = selectedPersonaId.value
-    const session = await createSession(importedChar.value.id, personaId, sessionMode.value)
+    const session = await startSession(importedChar.value.id)
     emit('created', session.id)
+  } catch (error) {
+    window.alert(error instanceof Error ? error.message : '创建对话失败')
   } finally {
     creating.value = false
   }
@@ -501,17 +620,13 @@ async function startWithImported() {
 async function handleDeleteCharacter(id: string) {
   const character = characters.value.find(item => item.id === id)
 
-  if (!character) {
-    return
-  }
+  if (!character) return
 
   const confirmed = window.confirm(
     `确定删除角色「${character.name}」吗？相关对话不会被删除。`
   )
 
-  if (!confirmed) {
-    return
-  }
+  if (!confirmed) return
 
   await db.characters.delete(id)
   await loadCharacters()
@@ -894,5 +1009,176 @@ async function handleDeleteCharacter(id: string) {
 .confirm-btn:disabled {
   cursor: not-allowed;
   opacity: 0.4;
+}
+
+/* 会话前置设置 */
+.session-setup {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 4px 0 20px;
+  padding: 16px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 12px;
+}
+
+.setup-section {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.setup-label-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.setup-label {
+  font-size: 13px;
+  color: rgba(245, 245, 245, 0.78);
+}
+
+.setup-note {
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.36);
+}
+
+/* daily / roleplay */
+.chat-mode-selector {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chat-mode-card {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-height: 82px;
+  padding: 11px;
+  color: rgba(245, 245, 245, 0.58);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 9px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.chat-mode-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.chat-mode-card.active {
+  color: rgba(245, 245, 245, 0.92);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.38);
+}
+
+.chat-mode-title {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.chat-mode-description {
+  font-size: 11px;
+  line-height: 1.45;
+  opacity: 0.62;
+}
+
+/* Persona */
+.persona-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.persona-option {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 8px 10px;
+  color: rgba(245, 245, 245, 0.72);
+  text-align: left;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.persona-option:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.persona-option.selected {
+  color: rgba(245, 245, 245, 0.95);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.persona-avatar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  overflow: hidden;
+  color: rgba(245, 245, 245, 0.55);
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.persona-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.persona-info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.persona-name {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.persona-description {
+  overflow: hidden;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.4);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.persona-selected-mark {
+  font-size: 15px;
+  color: rgba(245, 245, 245, 0.85);
+}
+
+.persona-empty {
+  padding: 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: rgba(245, 245, 245, 0.4);
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
 }
 </style>
