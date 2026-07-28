@@ -91,6 +91,12 @@
           </span>
         </div>
 
+        <div v-if="memory.keywords?.length" class="memory-tags">
+          <span v-for="kw in memory.keywords" :key="kw" class="memory-tag keyword">
+            {{ kw }}
+          </span>
+        </div>
+
         <div class="memory-card-footer">
           <span class="memory-extra">
             重要度 {{ memory.importance }} · 来源 {{ sourceLabel(memory.source) }}
@@ -327,7 +333,8 @@ const filteredMemories = computed(() => {
         memory.type,
         memory.scope,
         memory.source,
-        ...(memory.tags || [])
+        ...(memory.tags || []),
+        ...(memory.keywords || [])
       ]
         .join(' ')
         .toLowerCase()
@@ -598,247 +605,256 @@ function formatDate(timestamp: number): string {
 .memory-action-btn {
   height: 36px;
   border: 1px solid rgba(255, 255, 255, 0.12);
-  outline: none;
-  color: rgba(245, 245, 245, 0.82);
-  background: rgba(0, 0, 0, 0.24);
-  backdrop-filter: blur(14px);
-  font-size: 12px;
-}
-
-.memory-search {
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.86);
   padding: 0 12px;
+  outline: none;
 }
 
-.memory-select {
-  padding: 0 9px;
+.memory-search::placeholder {
+  color: rgba(245, 245, 245, 0.32);
 }
 
 .memory-action-btn {
-  padding: 0 14px;
   cursor: pointer;
+  background: rgba(255, 255, 255, 0.08);
 }
 
-.memory-action-btn:hover,
-.memory-select:hover,
-.memory-search:focus {
-  border-color: rgba(255, 255, 255, 0.28);
+.memory-action-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .memory-main {
   display: grid;
-  gap: 12px;
+  gap: 14px;
 }
 
 .memory-empty {
-  margin: 80px 0;
+  padding: 36px 0;
   text-align: center;
-  font-size: 13px;
   color: rgba(245, 245, 245, 0.42);
+  font-size: 13px;
 }
 
 .memory-card {
-  padding: 16px;
-  border-left: 1px solid rgba(255, 255, 255, 0.22);
-  background: rgba(255, 255, 255, 0.045);
-  backdrop-filter: blur(18px);
-}
-
-.memory-card.is-draft {
-  border-left-color: rgba(205, 183, 128, 0.76);
-  background: rgba(205, 183, 128, 0.06);
+  padding: 16px 16px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(10px);
 }
 
 .memory-card.is-disabled {
-  opacity: 0.48;
+  opacity: 0.58;
 }
 
-.memory-card-top {
+.memory-card.is-draft {
+  border-color: rgba(255, 210, 120, 0.22);
+}
+
+.memory-card-top,
+.memory-card-footer {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .memory-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-bottom: 8px;
+  font-size: 11px;
 }
 
 .memory-type,
 .memory-scope,
 .memory-status {
-  padding: 2px 7px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  font-size: 10px;
-  color: rgba(245, 245, 245, 0.48);
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(245, 245, 245, 0.72);
 }
 
 .memory-status.draft {
-  border-color: rgba(205, 183, 128, 0.4);
-  color: rgba(225, 204, 147, 0.88);
+  background: rgba(255, 193, 7, 0.18);
+  color: rgba(255, 226, 140, 0.95);
 }
 
-.memory-status.archived,
+.memory-status.archived {
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 245, 245, 0.45);
+}
+
 .memory-status.disabled {
-  color: rgba(245, 245, 245, 0.32);
+  background: rgba(255, 120, 120, 0.14);
+  color: rgba(255, 170, 170, 0.95);
 }
 
 .memory-card-title {
   margin: 0;
-  font-size: 15px;
-  font-weight: 500;
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(245, 245, 245, 0.94);
 }
 
 .memory-date {
-  white-space: nowrap;
-  font-size: 11px;
+  flex-shrink: 0;
   color: rgba(245, 245, 245, 0.36);
+  font-size: 12px;
 }
 
 .memory-content {
   margin: 12px 0 0;
   white-space: pre-wrap;
+  line-height: 1.7;
   font-size: 13px;
-  line-height: 1.75;
-  color: rgba(245, 245, 245, 0.68);
+  color: rgba(245, 245, 245, 0.8);
 }
 
 .memory-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: 8px;
   margin-top: 12px;
 }
 
 .memory-tag {
+  padding: 4px 8px;
+  border-radius: 999px;
   font-size: 11px;
-  color: rgba(245, 245, 245, 0.36);
+  background: rgba(255, 255, 255, 0.07);
+  color: rgba(245, 245, 245, 0.72);
+}
+
+.memory-tag.keyword {
+  background: rgba(120, 180, 255, 0.14);
+  color: rgba(200, 225, 255, 0.92);
 }
 
 .memory-card-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
   margin-top: 14px;
+  align-items: center;
 }
 
 .memory-extra {
   font-size: 11px;
-  color: rgba(245, 245, 245, 0.34);
+  color: rgba(245, 245, 245, 0.42);
 }
 
 .memory-actions {
   display: flex;
   flex-wrap: wrap;
-  justify-content: flex-end;
   gap: 10px;
+  justify-content: flex-end;
 }
 
 .memory-text-btn {
-  padding: 0;
   border: 0;
   background: transparent;
-  color: rgba(245, 245, 245, 0.48);
-  font-size: 11px;
+  color: rgba(245, 245, 245, 0.7);
+  font-size: 12px;
   cursor: pointer;
+  padding: 0;
 }
 
 .memory-text-btn:hover {
-  color: rgba(255, 255, 255, 0.88);
+  color: rgba(245, 245, 245, 0.95);
+}
+
+.memory-text-btn.danger {
+  color: rgba(255, 160, 160, 0.78);
 }
 
 .memory-text-btn.danger:hover {
-  color: rgba(236, 144, 144, 0.95);
+  color: rgba(255, 190, 190, 1);
 }
 
 .memory-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 999;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 18px;
-  background: rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(8px);
+  padding: 20px;
+  background: rgba(0, 0, 0, 0.55);
 }
 
 .memory-modal {
-  width: min(620px, calc(100vw - 32px));
-  max-height: min(820px, calc(100vh - 32px));
-  overflow-y: auto;
-  padding: 20px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  background: rgba(12, 12, 12, 0.92);
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+  width: min(760px, 100%);
+  max-height: min(90vh, 920px);
+  overflow: auto;
+  padding: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  background: rgba(22, 22, 28, 0.96);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
 }
 
 .memory-modal-header {
   display: flex;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
 .memory-modal-title {
   margin: 0;
-  font-size: 17px;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 600;
 }
 
 .memory-modal-subtitle {
-  margin: 6px 0 0;
-  font-size: 11px;
-  color: rgba(245, 245, 245, 0.4);
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.42);
 }
 
 .memory-close-btn {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 10px;
   background: rgba(255, 255, 255, 0.06);
-  color: rgba(245, 245, 245, 0.66);
-  font-size: 20px;
+  color: rgba(245, 245, 245, 0.72);
   cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
 }
 
 .memory-form {
   display: grid;
-  gap: 12px;
-  margin-top: 18px;
-}
-
-.memory-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
+  gap: 14px;
 }
 
 .memory-field {
   display: grid;
-  gap: 6px;
-  font-size: 11px;
-  color: rgba(245, 245, 245, 0.46);
+  gap: 8px;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.68);
 }
 
 .memory-field input,
 .memory-field select,
 .memory-field textarea {
   width: 100%;
-  box-sizing: border-box;
   border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.88);
   outline: none;
-  color: rgba(245, 245, 245, 0.84);
-  background: rgba(0, 0, 0, 0.24);
-  font: inherit;
+  font-size: 13px;
 }
 
 .memory-field input,
 .memory-field select {
-  height: 34px;
-  padding: 0 10px;
+  height: 38px;
+  padding: 0 12px;
 }
 
 .memory-field textarea {
@@ -851,6 +867,12 @@ function formatDate(timestamp: number): string {
 .memory-field select:focus,
 .memory-field textarea:focus {
   border-color: rgba(255, 255, 255, 0.32);
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 
 .memory-checks {
@@ -921,4 +943,3 @@ function formatDate(timestamp: number): string {
   }
 }
 </style>
-
