@@ -34,13 +34,15 @@
       </button>
 
       <Transition name="fade">
-        <div v-if="showSessionMenu" class="session-menu">
-          <button class="menu-item" type="button" @click="handleSetWallpaper">设置壁纸</button>
-          <button class="menu-item" type="button" @click="showBubbleStyleModal = true; showSessionMenu = false">气泡样式</button>
-          <button class="menu-item" type="button" @click="showProactiveModal = true; showSessionMenu = false">主动消息设置</button>
-          <button class="menu-item" type="button" @click="handleClearMessages">清空聊天记录</button>
-          <button class="menu-item danger" type="button" @click="handleDeleteSession">删除对话</button>
-        </div>
+       <div v-if="showSessionMenu" class="session-menu">
+  <button class="menu-item" type="button" @click="handleSetWallpaper">设置壁纸</button>
+  <button class="menu-item" type="button" @click="showBubbleStyleModal = true; showSessionMenu = false">气泡样式</button>
+  <button class="menu-item" type="button" @click="showProactiveModal = true; showSessionMenu = false">主动消息设置</button>
+  <button class="menu-item" type="button" @click="openMemorySettingsModal">记忆设置</button>
+  <button class="menu-item" type="button" @click="handleClearMessages">清空聊天记录</button>
+  <button class="menu-item danger" type="button" @click="handleDeleteSession">删除对话</button>
+</div>
+
       </Transition>
     </header>
 
@@ -536,6 +538,125 @@
       </Transition>
     </Teleport>
 
+
+    <!-- 记忆设置 -->
+<Teleport to="body">
+  <Transition name="fade">
+    <div
+      v-if="showMemorySettingsModal"
+      class="modal-overlay"
+      @click.self="closeMemorySettingsModal"
+    >
+      <div class="mini-modal memory-settings-modal">
+        <div class="memory-settings-header">
+          <div>
+            <h4 class="mini-modal-title">记忆设置</h4>
+            <p class="memory-settings-subtitle">
+              每个对话框都有自己的记忆系统。这里控制当前会话如何记住你们的日常。
+            </p>
+          </div>
+
+          <button
+            class="memory-settings-close"
+            type="button"
+            title="关闭"
+            @click="closeMemorySettingsModal"
+          >
+            ×
+          </button>
+        </div>
+
+        <div class="memory-settings-section">
+          <label class="memory-toggle-row">
+            <span>
+              <strong>启用当前会话记忆</strong>
+              <em>关闭后，本会话不会自动摘要、不会自动撰写真实 user 日记，也不会注入会话记忆。</em>
+            </span>
+
+            <input
+              v-model="memorySettingsEnabled"
+              type="checkbox"
+            />
+          </label>
+        </div>
+
+        <div class="memory-settings-section">
+          <label class="memory-field-row">
+            <span>
+              <strong>每 N 条消息自动摘要</strong>
+              <em>达到设定数量后，会生成一条新的摘要记忆，不覆盖旧摘要。</em>
+            </span>
+
+            <input
+              v-model.number="memorySettingsSummarizeEveryN"
+              class="memory-number-input"
+              type="number"
+              min="5"
+              max="200"
+              step="1"
+              :disabled="!memorySettingsEnabled"
+            />
+          </label>
+        </div>
+
+        <div class="memory-settings-stats">
+          <div class="memory-stat-card">
+            <span class="memory-stat-number">{{ memoryStats.summary }}</span>
+            <span class="memory-stat-label">摘要</span>
+          </div>
+
+          <div class="memory-stat-card">
+            <span class="memory-stat-number">{{ memoryStats.diary }}</span>
+            <span class="memory-stat-label">日记</span>
+          </div>
+
+          <div class="memory-stat-card">
+            <span class="memory-stat-number">{{ memoryStats.worldbook }}</span>
+            <span class="memory-stat-label">世界书</span>
+          </div>
+
+          <div class="memory-stat-card">
+            <span class="memory-stat-number">{{ memoryStats.total }}</span>
+            <span class="memory-stat-label">总记忆</span>
+          </div>
+        </div>
+
+        <p class="memory-settings-note">
+          daily 模式下，真实 user 日记只会在当前 user 人设为真实 user 时生成。
+          RP 模式不会写入真实 user 日记。
+        </p>
+
+        <div class="mini-modal-actions">
+          <button
+            class="modal-btn secondary"
+            type="button"
+            @click="goMemoryApp"
+          >
+            打开记忆库
+          </button>
+
+          <button
+            class="modal-btn secondary"
+            type="button"
+            @click="closeMemorySettingsModal"
+          >
+            取消
+          </button>
+
+          <button
+            class="modal-btn primary"
+            type="button"
+            :disabled="memorySettingsSaving"
+            @click="saveMemorySettings"
+          >
+            {{ memorySettingsSaving ? '保存中…' : '保存设置' }}
+          </button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -773,8 +894,20 @@ const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const showBubbleStyleModal = ref(false)
 const showProactiveModal = ref(false)
+const showMemorySettingsModal = ref(false)
+const memorySettingsSaving = ref(false)
+const memorySettingsEnabled = ref(true)
+const memorySettingsSummarizeEveryN = ref(20)
+
+const memoryStats = reactive({
+  total: 0,
+  summary: 0,
+  diary: 0,
+  worldbook: 0
+})
 
 const showDiaryModal = ref(false)
+
 const diaryLoading = ref(false)
 const diarySaving = ref(false)
 const diaries = ref<MemoryEntry[]>([])
@@ -1195,6 +1328,71 @@ function formatDiaryDate(timestamp: number): string {
     minute: '2-digit'
   }).format(timestamp)
 }
+
+async function openMemorySettingsModal() {
+  if (!session.value) return
+
+  memorySettingsEnabled.value = session.value.memoryEnabled ?? true
+  memorySettingsSummarizeEveryN.value = session.value.memorySummarizeEveryN || 20
+
+  showSessionMenu.value = false
+  showMemorySettingsModal.value = true
+
+  await loadMemoryStats()
+}
+
+function closeMemorySettingsModal() {
+  showMemorySettingsModal.value = false
+}
+
+async function loadMemoryStats() {
+  const entries = await db.memoryEntries
+    .where('sessionId')
+    .equals(sessionId)
+    .toArray()
+
+  memoryStats.total = entries.length
+  memoryStats.summary = entries.filter(entry => entry.type === 'summary').length
+  memoryStats.diary = entries.filter(entry => entry.type === 'diary').length
+  memoryStats.worldbook = entries.filter(entry => entry.type === 'worldbook').length
+}
+
+async function saveMemorySettings() {
+  if (!session.value) return
+
+  const summarizeEveryN = Math.min(
+    200,
+    Math.max(5, Number(memorySettingsSummarizeEveryN.value) || 20)
+  )
+
+  memorySettingsSaving.value = true
+
+  try {
+    await db.chatSessions.update(sessionId, {
+      memoryEnabled: memorySettingsEnabled.value,
+      memorySummarizeEveryN: summarizeEveryN
+    })
+
+    session.value = {
+      ...session.value,
+      memoryEnabled: memorySettingsEnabled.value,
+      memorySummarizeEveryN: summarizeEveryN
+    }
+
+    closeMemorySettingsModal()
+  } catch (error) {
+    console.error('[memory] 保存记忆设置失败:', error)
+    window.alert('记忆设置没有保存成功，请稍后再试。')
+  } finally {
+    memorySettingsSaving.value = false
+  }
+}
+
+function goMemoryApp() {
+  closeMemorySettingsModal()
+  router.push('/memory')
+}
+
 
 // 右键菜单 — 对所有消息生效（user + assistant）
 function openContextMenu(e: MouseEvent | TouchEvent, msg: Message) {
@@ -2585,4 +2783,137 @@ watch(() => contextMenu.visible, (visible) => {
   line-height: 1.6;
   color: rgba(245, 245, 245, 0.38);
 }
+
+.memory-settings-modal {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.memory-settings-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.memory-settings-subtitle {
+  margin: 6px 0 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+.memory-settings-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  color: rgba(245, 245, 245, 0.66);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.memory-settings-close:hover {
+  color: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.memory-settings-section {
+  margin-top: 16px;
+  padding: 13px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.memory-toggle-row,
+.memory-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.memory-toggle-row span,
+.memory-field-row span {
+  display: grid;
+  gap: 4px;
+}
+
+.memory-toggle-row strong,
+.memory-field-row strong {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(245, 245, 245, 0.82);
+}
+
+.memory-toggle-row em,
+.memory-field-row em {
+  max-width: 340px;
+  font-style: normal;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(245, 245, 245, 0.4);
+}
+
+.memory-number-input {
+  width: 78px;
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  outline: none;
+  color: rgba(245, 245, 245, 0.82);
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 12px;
+}
+
+.memory-number-input:disabled {
+  opacity: 0.45;
+}
+
+.memory-settings-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.memory-stat-card {
+  padding: 11px 8px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.memory-stat-number {
+  display: block;
+  font-size: 18px;
+  color: rgba(255, 255, 255, 0.86);
+}
+
+.memory-stat-label {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: rgba(245, 245, 245, 0.38);
+}
+
+.memory-settings-note {
+  margin: 14px 0 0;
+  font-size: 11px;
+  line-height: 1.7;
+  color: rgba(245, 245, 245, 0.4);
+}
+
+@media (max-width: 560px) {
+  .memory-toggle-row,
+  .memory-field-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .memory-settings-stats {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 </style>
