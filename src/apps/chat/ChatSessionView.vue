@@ -632,6 +632,44 @@
   </button>
 </div>
 
+<div
+  v-if="activeMemoryPanelTab === 'worldbook'"
+  class="worldbook-filter-row"
+>
+  <button
+    :class="['worldbook-filter-btn', { active: worldbookBindingFilter === 'all' }]"
+    type="button"
+    @click="worldbookBindingFilter = 'all'"
+  >
+    全部
+  </button>
+
+  <button
+    :class="['worldbook-filter-btn', { active: worldbookBindingFilter === 'session' }]"
+    type="button"
+    @click="worldbookBindingFilter = 'session'"
+  >
+    当前会话
+  </button>
+
+  <button
+    :class="['worldbook-filter-btn', { active: worldbookBindingFilter === 'character' }]"
+    type="button"
+    @click="worldbookBindingFilter = 'character'"
+  >
+    当前角色
+  </button>
+
+  <button
+    :class="['worldbook-filter-btn', { active: worldbookBindingFilter === 'global' }]"
+    type="button"
+    @click="worldbookBindingFilter = 'global'"
+  >
+    全局
+  </button>
+</div>
+
+
 <div class="memory-panel-content">
   <div v-if="memoryPanelLoading" class="memory-panel-empty">加载中…</div>
 
@@ -686,10 +724,75 @@
             <textarea v-model="editingMemoryDrafts[entry.id].content" rows="4"></textarea>
           </label>
 
-          <label v-if="entry.type === 'worldbook'" class="memory-entry-field">
-            <span>关键词（逗号分隔）</span>
-            <input v-model="editingMemoryDrafts[entry.id].keywordsText" type="text" />
-          </label>
+         <div
+  v-if="entry.type === 'worldbook'"
+  class="memory-entry-field memory-panel-field"
+>
+  <div class="worldbook-field-header">
+    <span>触发关键词</span>
+
+    <div class="worldbook-badge-row">
+      <span class="worldbook-binding-badge">
+        {{ getWorldbookBindingLabel(entry) }}
+      </span>
+
+      <span
+        :class="[
+          'worldbook-enabled-badge',
+          editingMemoryDrafts[entry.id]?.enabled ? 'enabled' : 'disabled'
+        ]"
+      >
+        {{ editingMemoryDrafts[entry.id]?.enabled ? '已启用' : '已禁用' }}
+      </span>
+
+      <span class="worldbook-binding-badge">
+        优先级 {{ editingMemoryDrafts[entry.id]?.priority ?? entry.priority ?? 0 }}
+      </span>
+    </div>
+  </div>
+
+  <div class="keyword-chip-list">
+    <span
+      v-for="keyword in editingMemoryDrafts[entry.id].keywords"
+      :key="keyword"
+      class="keyword-chip"
+    >
+      {{ keyword }}
+
+      <button
+        type="button"
+        @click="removeWorldbookKeyword(entry.id, keyword)"
+      >
+        ×
+      </button>
+    </span>
+
+    <span
+      v-if="editingMemoryDrafts[entry.id].keywords.length === 0"
+      class="keyword-chip-empty"
+    >
+      暂无关键词，未设置关键词时不会被关键词触发。
+    </span>
+  </div>
+
+  <div class="keyword-add-row">
+    <input
+      v-model="editingMemoryDrafts[entry.id].newKeyword"
+      type="text"
+      placeholder="输入关键词后回车"
+      @keydown.enter="handleWorldbookKeywordEnter($event, entry.id)"
+    />
+
+    <button
+      class="memory-entry-btn"
+      type="button"
+      @click="addWorldbookKeyword(entry.id)"
+    >
+      添加
+    </button>
+  </div>
+</div>
+
 
           <div class="memory-entry-grid">
             <label class="memory-entry-field">
@@ -744,7 +847,7 @@
     </div>
   </Transition>
 </Teleport>
-F
+
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -987,6 +1090,8 @@ const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const showBubbleStyleModal = ref(false)
 const showProactiveModal = ref(false)
 type MemoryPanelTab = 'summary' | 'diary' | 'worldbook' | 'permanent'
+type WorldbookBindingFilter = 'all' | 'session' | 'character' | 'global'
+
 
 const memoryPanelTabs: Array<{
   key: MemoryPanelTab
@@ -1023,17 +1128,21 @@ const memorySettingsSummarizeEveryN = ref(20)
 const memoryPanelLoading = ref(false)
 const memoryPanelSavingId = ref<string | null>(null)
 const activeMemoryPanelTab = ref<MemoryPanelTab>('summary')
+const worldbookBindingFilter = ref<WorldbookBindingFilter>('all')
 const currentSessionMemories = ref<MemoryEntry[]>([])
+
 
 const editingMemoryDrafts = reactive<Record<string, {
   title: string
   content: string
-  keywordsText: string
+  keywords: string[]
+  newKeyword: string
   importance: number
   priority: number
   enabled: boolean
   status: MemoryEntry['status']
 }>>({})
+
 
 const memoryStats = reactive({
   total: 0,
@@ -1122,7 +1231,17 @@ const bubbleStyleClass = computed(() => {
   return `bubble-style-${style}`
 })
 const currentTabMemoryEntries = computed(() => {
-  return currentSessionMemories.value.filter(entry => entry.type === activeMemoryPanelTab.value)
+  return currentSessionMemories.value.filter(entry => {
+    if (activeMemoryPanelTab.value === 'worldbook') {
+      if (entry.type !== 'worldbook') return false
+
+      if (worldbookBindingFilter.value === 'all') return true
+
+      return getWorldbookBindingType(entry) === worldbookBindingFilter.value
+    }
+
+    return entry.type === activeMemoryPanelTab.value && entry.sessionId === sessionId
+  })
 })
 
 const currentTabEmptyText = computed(() => {
@@ -1497,7 +1616,8 @@ function syncMemoryEditorDrafts(entries: MemoryEntry[]) {
     editingMemoryDrafts[entry.id] = {
       title: entry.title || '',
       content: entry.content || '',
-      keywordsText: Array.isArray(entry.keywords) ? entry.keywords.join(', ') : '',
+      keywords: Array.isArray(entry.keywords) ? [...entry.keywords] : [],
+      newKeyword: '',
       importance: entry.importance ?? 0,
       priority: entry.priority ?? 0,
       enabled: entry.enabled !== false,
@@ -1506,26 +1626,56 @@ function syncMemoryEditorDrafts(entries: MemoryEntry[]) {
   }
 }
 
+
 async function loadCurrentSessionMemories() {
+  if (!session.value) return
+
   memoryPanelLoading.value = true
 
   try {
-    const entries = await db.memoryEntries
+    const sessionEntries = await db.memoryEntries
       .where('sessionId')
       .equals(sessionId)
       .toArray()
 
+    const relatedWorldbookEntries = await db.memoryEntries
+      .where('type')
+      .equals('worldbook')
+      .and(entry =>
+        entry.enabled !== false &&
+        entry.status !== 'archived' &&
+        (
+          entry.sessionId === sessionId ||
+          (!!entry.characterId && entry.characterId === session.value!.characterId && !entry.sessionId) ||
+          (!entry.sessionId && !entry.characterId && entry.scope === 'global')
+        )
+      )
+      .toArray()
+
+    const entryMap = new Map<string, MemoryEntry>()
+
+    for (const entry of sessionEntries) {
+      entryMap.set(entry.id, entry)
+    }
+
+    for (const entry of relatedWorldbookEntries) {
+      entryMap.set(entry.id, entry)
+    }
+
+    const entries = [...entryMap.values()]
+
     currentSessionMemories.value = entries
 
-    memoryStats.total = entries.length
-    memoryStats.summary = entries.filter(entry => entry.type === 'summary').length
-    memoryStats.diary = entries.filter(entry => entry.type === 'diary' && entry.isRealUserRelated).length
-    memoryStats.worldbook = entries.filter(entry => entry.type === 'worldbook').length
-    memoryStats.permanent = entries.filter(entry => entry.type === 'permanent' || entry.isPermanent).length
+    memoryStats.total = entries.filter(entry => entry.sessionId === sessionId).length
+    memoryStats.summary = entries.filter(entry => entry.sessionId === sessionId && entry.type === 'summary').length
+    memoryStats.diary = entries.filter(entry => entry.sessionId === sessionId && entry.type === 'diary' && entry.isRealUserRelated).length
+    memoryStats.worldbook = relatedWorldbookEntries.length
+    memoryStats.permanent = entries.filter(entry => entry.sessionId === sessionId && (entry.type === 'permanent' || entry.isPermanent)).length
 
     syncMemoryEditorDrafts(entries)
   } catch (error) {
-    console.error('[memory] 读取会话记忆失败:', error)
+    console.error('[memory] 读取当前会话记忆失败:', error)
+
     currentSessionMemories.value = []
 
     memoryStats.total = 0
@@ -1537,6 +1687,7 @@ async function loadCurrentSessionMemories() {
     memoryPanelLoading.value = false
   }
 }
+
 
 async function saveMemorySettings() {
   if (!session.value) return
@@ -1584,12 +1735,72 @@ function formatMemoryType(type: string) {
   }
 }
 
+function getWorldbookBindingType(entry: MemoryEntry): WorldbookBindingFilter | 'other' {
+  if (entry.sessionId === sessionId) return 'session'
+
+  if (
+    session.value &&
+    entry.characterId === session.value.characterId &&
+    !entry.sessionId
+  ) {
+    return 'character'
+  }
+
+  if (!entry.sessionId && !entry.characterId && entry.scope === 'global') {
+    return 'global'
+  }
+
+  return 'other'
+}
+
+function getWorldbookBindingLabel(entry: MemoryEntry): string {
+  const type = getWorldbookBindingType(entry)
+
+  const map: Record<WorldbookBindingFilter | 'other', string> = {
+    all: '全部',
+    session: '当前会话',
+    character: '当前角色',
+    global: '全局',
+    other: '其他来源'
+  }
+
+  return map[type]
+}
+
+function addWorldbookKeyword(entryId: string) {
+  const draft = editingMemoryDrafts[entryId]
+  if (!draft) return
+
+  const keyword = draft.newKeyword.trim()
+  if (!keyword) return
+
+  if (!draft.keywords.includes(keyword)) {
+    draft.keywords.push(keyword)
+  }
+
+  draft.newKeyword = ''
+}
+
+function removeWorldbookKeyword(entryId: string, keyword: string) {
+  const draft = editingMemoryDrafts[entryId]
+  if (!draft) return
+
+  draft.keywords = draft.keywords.filter(item => item !== keyword)
+}
+
+function handleWorldbookKeywordEnter(event: KeyboardEvent, entryId: string) {
+  event.preventDefault()
+  addWorldbookKeyword(entryId)
+}
+
+
 function ensureMemoryDraft(entry: MemoryEntry) {
   if (!editingMemoryDrafts[entry.id]) {
     editingMemoryDrafts[entry.id] = {
       title: entry.title || '',
       content: entry.content || '',
-      keywordsText: Array.isArray(entry.keywords) ? entry.keywords.join(', ') : '',
+      keywords: Array.isArray(entry.keywords) ? [...entry.keywords] : [],
+      newKeyword: '',
       importance: entry.importance ?? 0,
       priority: entry.priority ?? 0,
       enabled: entry.enabled !== false,
@@ -1600,6 +1811,7 @@ function ensureMemoryDraft(entry: MemoryEntry) {
   return editingMemoryDrafts[entry.id]
 }
 
+
 async function saveMemoryEntry(entry: MemoryEntry) {
   const draft = ensureMemoryDraft(entry)
 
@@ -1609,9 +1821,10 @@ async function saveMemoryEntry(entry: MemoryEntry) {
     await updateMemoryEntry(entry.id, {
       title: draft.title.trim(),
       content: draft.content.trim(),
-      keywords: entry.type === 'worldbook'
-        ? draft.keywordsText.split(',').map(item => item.trim()).filter(Boolean)
-        : entry.keywords || [],
+     keywords: entry.type === 'worldbook'
+  ? draft.keywords
+  : entry.keywords || [],
+
       importance: Number(draft.importance) || 0,
       priority: Number(draft.priority) || 0,
       enabled: draft.enabled,
@@ -3311,6 +3524,91 @@ watch(() => contextMenu.visible, (visible) => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 10px;
+}
+
+.worldbook-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 12px;
+}
+
+.worldbook-filter-btn {
+  height: 28px;
+  padding: 0 10px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: rgba(245, 245, 245, 0.52);
+  background: rgba(255, 255, 255, 0.035);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.worldbook-filter-btn.active {
+  color: rgba(8, 8, 8, 0.92);
+  background: rgba(245, 245, 245, 0.86);
+  border-color: rgba(245, 245, 245, 0.86);
+}
+
+.worldbook-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.worldbook-binding-badge {
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(245, 245, 245, 0.56);
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 10px;
+}
+
+.keyword-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-height: 30px;
+  padding: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.keyword-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 3px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(245, 245, 245, 0.78);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 11px;
+}
+
+.keyword-chip button {
+  border: 0;
+  color: rgba(245, 245, 245, 0.55);
+  background: transparent;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.keyword-chip button:hover {
+  color: rgba(255, 150, 150, 0.9);
+}
+
+.keyword-chip-empty {
+  font-size: 11px;
+  line-height: 1.5;
+  color: rgba(245, 245, 245, 0.32);
+}
+
+.keyword-add-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
 }
 
 
