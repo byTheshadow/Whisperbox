@@ -949,7 +949,6 @@ import {
   stickerToMessageMedia
 } from './services/stickerService'
 import {
-  createMemoryEntry,
   createRealUserDiaryEntry,
   deleteMemoryEntry,
   getSessionDiaries,
@@ -957,38 +956,11 @@ import {
 } from './services/memoryService'
 
 
+
 interface DisplayMessage extends Message {
   quotedContent?: string
 }
 
-type MemoryPanelTab = 'summary' | 'diary' | 'worldbook' | 'permanent'
-
-const memoryPanelTabs: Array<{
-  key: MemoryPanelTab
-  label: string
-  emptyText: string
-}> = [
-  {
-    key: 'summary',
-    label: '摘要',
-    emptyText: '当前会话还没有摘要。达到自动摘要条数后会生成新的摘要记忆。'
-  },
-  {
-    key: 'diary',
-    label: '日记',
-    emptyText: '当前会话还没有真实 user 日记。日记只在 daily 模式下使用。'
-  },
-  {
-    key: 'worldbook',
-    label: '世界书',
-    emptyText: '当前会话还没有绑定世界书条目。这里管理的是当前会话专属世界书。'
-  },
-  {
-    key: 'permanent',
-    label: '永久记忆',
-    emptyText: '当前会话还没有永久记忆。'
-  }
-]
 
 
 const route = useRoute()
@@ -1157,15 +1129,6 @@ const currentTabEmptyText = computed(() => {
   return memoryPanelTabs.find(tab => tab.key === activeMemoryPanelTab.value)?.emptyText || '暂无记忆'
 })
 
-
-const currentMemoryEntries = computed(() => {
-  return memoryEntries.value.filter(entry => entry.type === memoryPanelTab.value)
-})
-
-const currentMemoryEmptyText = computed(() => {
-  const tab = memoryPanelTabs.find(item => item.key === memoryPanelTab.value)
-  return tab?.emptyText || '暂无记忆'
-})
 
 onMounted(async () => {
   session.value = await db.chatSessions.get(sessionId) || null
@@ -1538,7 +1501,7 @@ function syncMemoryEditorDrafts(entries: MemoryEntry[]) {
       importance: entry.importance ?? 0,
       priority: entry.priority ?? 0,
       enabled: entry.enabled !== false,
-      status: entry.status || 'active'
+      status: entry.status || 'saved'
     }
   }
 }
@@ -1564,77 +1527,14 @@ async function loadCurrentSessionMemories() {
   } catch (error) {
     console.error('[memory] 读取会话记忆失败:', error)
     currentSessionMemories.value = []
+
+    memoryStats.total = 0
+    memoryStats.summary = 0
+    memoryStats.diary = 0
+    memoryStats.worldbook = 0
+    memoryStats.permanent = 0
   } finally {
     memoryPanelLoading.value = false
-  }
-}
-
-
-function closeMemorySettingsModal() {
-  showMemorySettingsModal.value = false
-}
-
-async function loadMemoryStats() {
-  const entries = await db.memoryEntries
-    .where('sessionId')
-    .equals(sessionId)
-    .toArray()
-
-  memoryStats.total = entries.length
-  memoryStats.summary = entries.filter(entry => entry.type === 'summary').length
-  memoryStats.diary = entries.filter(entry => entry.type === 'diary').length
-  memoryStats.worldbook = entries.filter(entry => entry.type === 'worldbook').length
-}
-
-async function loadMemoryEntries() {
-  memoryPanelLoading.value = true
-
-  try {
-    memoryEntries.value = await db.memoryEntries
-      .where('sessionId')
-      .equals(sessionId)
-      .toArray()
-  } catch (error) {
-    console.error('[memory] 读取会话记忆失败:', error)
-    memoryEntries.value = []
-  } finally {
-    memoryPanelLoading.value = false
-  }
-}
-
-function formatMemoryType(type: string) {
-  switch (type) {
-    case 'summary':
-      return '摘要'
-    case 'diary':
-      return '日记'
-    case 'worldbook':
-      return '世界书'
-    case 'permanent':
-      return '永久记忆'
-    default:
-      return type
-  }
-}
-
-function editMemoryEntry(entry: MemoryEntry) {
-  window.alert(`当前版本先展示记忆条目：\n\n${entry.title || '未命名记忆'}\n\n如需在弹窗内直接编辑，我可以继续帮你补完整编辑表单。`)
-}
-
-async function removeMemoryEntry(entry: MemoryEntry) {
-  const confirmed = window.confirm(`确定删除「${entry.title || '这条记忆'}」吗？此操作无法恢复。`)
-  if (!confirmed) return
-
-  memoryPanelSavingId.value = entry.id
-  try {
-    await deleteMemoryEntry(entry.id)
-    await loadMemoryStats()
-    await loadMemoryEntries()
-  } catch (error) {
-    console.error('[memory] 删除记忆失败:', error)
-    window.alert('记忆删除失败，请稍后再试。')
-  } finally {
-    memoryPanelSavingId.value = null
   }
 }
 
@@ -1693,9 +1593,10 @@ function ensureMemoryDraft(entry: MemoryEntry) {
       importance: entry.importance ?? 0,
       priority: entry.priority ?? 0,
       enabled: entry.enabled !== false,
-      status: entry.status || 'active'
+      status: entry.status || 'saved'
     }
   }
+
   return editingMemoryDrafts[entry.id]
 }
 
@@ -1703,6 +1604,7 @@ async function saveMemoryEntry(entry: MemoryEntry) {
   const draft = ensureMemoryDraft(entry)
 
   memoryPanelSavingId.value = entry.id
+
   try {
     await updateMemoryEntry(entry.id, {
       title: draft.title.trim(),
@@ -1733,7 +1635,7 @@ async function toggleMemoryEnabled(entry: MemoryEntry) {
 
 async function toggleMemoryStatus(entry: MemoryEntry) {
   const draft = ensureMemoryDraft(entry)
-  draft.status = draft.status === 'archived' ? 'active' : 'archived'
+  draft.status = draft.status === 'archived' ? 'saved' : 'archived'
   await saveMemoryEntry(entry)
 }
 
@@ -1742,6 +1644,7 @@ async function removeMemoryEntry(entry: MemoryEntry) {
   if (!confirmed) return
 
   memoryPanelSavingId.value = entry.id
+
   try {
     await deleteMemoryEntry(entry.id)
     await loadCurrentSessionMemories()
@@ -1753,11 +1656,11 @@ async function removeMemoryEntry(entry: MemoryEntry) {
   }
 }
 
-
 function goMemoryApp() {
   closeMemorySettingsModal()
   router.push('/memory')
 }
+
 
 
 // 右键菜单 — 对所有消息生效（user + assistant）
