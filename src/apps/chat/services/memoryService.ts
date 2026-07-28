@@ -1,11 +1,27 @@
 import { db, type MemoryEntry, type ChatSession } from '@/core/db'
 
+export type TriggeredWorldbookResult = {
+  entries: MemoryEntry[]
+  matchedKeywords: string[]
+}
+
 function sortByRecent<T extends { createdAt: number }>(items: T[]): T[] {
   return [...items].sort((a, b) => b.createdAt - a.createdAt)
 }
 
 function takeRecent<T extends { createdAt: number }>(items: T[], limit: number): T[] {
   return sortByRecent(items).slice(0, limit).reverse()
+}
+
+function normalizeMatchText(text: string): string {
+  return text.toLowerCase()
+}
+
+function isKeywordMatched(keyword: string, text: string): boolean {
+  const normalizedKeyword = keyword.trim().toLowerCase()
+  if (!normalizedKeyword) return false
+
+  return text.includes(normalizedKeyword)
 }
 
 function takeByImportance<T extends { createdAt: number; importance: number }>(items: T[], limit: number): T[] {
@@ -284,5 +300,79 @@ export async function getPromptMemoriesForSession(session: ChatSession): Promise
     permanent,
     custom,
     globalPrompts: globalPromptTop
+  }
+}
+
+export async function getTriggeredWorldbookEntries(params: {
+  session: ChatSession
+  triggerText: string
+  maxEntries?: number
+}): Promise<TriggeredWorldbookResult> {
+  const maxEntries = params.maxEntries ?? 6
+  const normalizedText = normalizeMatchText(params.triggerText)
+
+  if (!params.session.memoryEnabled) {
+    return {
+      entries: [],
+      matchedKeywords: []
+    }
+  }
+
+  const allEntries = await db.memoryEntries
+    .where('type')
+    .equals('worldbook')
+    .and(entry =>
+      entry.enabled !== false &&
+      entry.status !== 'archived' &&
+      (
+        // 当前会话专属世界书
+        entry.sessionId === params.session.id ||
+
+        // 当前角色相关世界书
+        (!!entry.characterId && entry.characterId === params.session.characterId) ||
+
+        // 全局世界书
+        (!entry.sessionId && !entry.characterId && entry.scope === 'global')
+      )
+    )
+    .toArray()
+
+  const matched: Array<{
+    entry: MemoryEntry
+    matchedKeywords: string[]
+  }> = []
+
+  for (const entry of allEntries) {
+    const keywords = entry.keywords || []
+
+    const hitKeywords = keywords.filter(keyword =>
+      isKeywordMatched(keyword, normalizedText)
+    )
+
+    if (hitKeywords.length > 0) {
+      matched.push({
+        entry,
+        matchedKeywords: hitKeywords
+      })
+    }
+  }
+
+  matched.sort((a, b) => {
+    if (b.entry.priority !== a.entry.priority) {
+      return b.entry.priority - a.entry.priority
+    }
+
+    if (b.entry.importance !== a.entry.importance) {
+      return b.entry.importance - a.entry.importance
+    }
+
+    return b.entry.updatedAt - a.entry.updatedAt
+  })
+
+  const limited = matched.slice(0, maxEntries)
+
+  return {
+    entries: limited.map(item => item.entry),
+    matchedKeywords: [...new Set(limited.flatMap(item => item.matchedKeywords))]
   }
 }

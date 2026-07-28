@@ -1,8 +1,8 @@
 import { db, type Message, type ChatSession, type Character, type MemoryEntry } from '@/core/db'
 import {
-  getPromptMemoriesForSession
+  getPromptMemoriesForSession,
+  getTriggeredWorldbookEntries
 } from './memoryService'
-
 
 const REAL_USER_DIARY_EVERY_N_MESSAGES = 30
 
@@ -203,22 +203,60 @@ ${modeRule}
  * 支持：
  * - 根据会话模式区别 prompt
  * - 用户人设注入
- * - 全局提示词、会话摘要、永久记忆、自定义记忆、真实 user 日记注入
+ * - 全局提示词、会话摘要、永久记忆、自定义记忆、真实 user 日记、世界书注入
  * - sticker / image / voice 特殊消息
  */
 export async function buildApiMessages(
   sessionId: string,
   character: Character | undefined,
-  personaDescription: string
+  personaDescription: string,
+  currentUserInput = ''
 ): Promise<Array<{ role: string; content: string }>> {
   const session = await db.chatSessions.get(sessionId)
   const messages = await getSessionMessages(sessionId)
 
   if (!session) {
-    return []
+    throw new Error(`Session not found: ${sessionId}`)
   }
 
+  // 使用当前用户输入和最近 10 条非 system 消息触发世界书。
+  // sticker 仅使用名称、含义和描述参与触发，不把其格式化文本当作普通历史文本。
+  const recentTriggerText = messages
+    .filter(msg => msg.role !== 'system')
+    .slice(-10)
+    .map(msg => {
+      if (msg.media?.type === 'sticker') {
+        return [
+          msg.content,
+          msg.media.name,
+          msg.media.meaning,
+          msg.media.description
+        ].filter(Boolean).join(' ')
+      }
+
+      if (msg.media) {
+        return [
+          msg.content,
+          msg.media.description
+        ].filter(Boolean).join(' ')
+      }
+
+      return msg.content
+    })
+    .join('\n')
+
+  const worldbookTriggerText = [
+    currentUserInput,
+    recentTriggerText
+  ].filter(Boolean).join('\n')
+
   const memoryBundle = await getPromptMemoriesForSession(session)
+
+  const worldbookBundle = await getTriggeredWorldbookEntries({
+    session,
+    triggerText: worldbookTriggerText,
+    maxEntries: 6
+  })
 
   const apiMessages: Array<{ role: string; content: string }> = []
 
@@ -294,14 +332,25 @@ ${personaDescription}
     }))
   )
 
+  const worldbookBlock = buildMemoryBlock(
+    worldbookBundle.matchedKeywords.length
+      ? `世界书 · 触发词：${worldbookBundle.matchedKeywords.join('、')}`
+      : '世界书',
+    worldbookBundle.entries.map(item => ({
+      title: item.title,
+      content: item.content
+    }))
+  )
+
   // 3. 按指定顺序拼接记忆：
-  // 全局提示词 → 会话摘要 → 永久记忆 → 自定义记忆 → 真实 user 日记
+  // 全局提示词 → 会话摘要 → 永久记忆 → 自定义记忆 → 真实 user 日记 → 世界书
   const memoryPrompt = [
     globalPromptBlock,
     summaryBlock,
     permanentBlock,
     customBlock,
-    diaryBlock
+    diaryBlock,
+    worldbookBlock
   ]
     .filter(Boolean)
     .join('\n\n')
@@ -364,7 +413,6 @@ ${personaDescription}
   return apiMessages
 }
 
-
 function buildMemoryBlock(title: string, items: Array<{ title: string; content: string }>): string {
   if (!items.length) return ''
 
@@ -376,7 +424,6 @@ function buildMemoryBlock(title: string, items: Array<{ title: string; content: 
     })
   ].join('\n')
 }
-
 
 /**
  * 格式化消息，供会话摘要 AI 使用
@@ -814,7 +861,22 @@ export async function sendAndGetReply(
   personaDescription: string
 ): Promise<Message[]> {
   const character = await db.characters.get(characterId)
-  const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
+
+  const latestUserMessage = [...await getSessionMessages(sessionId)]
+    .filter(msg => msg.role === 'user')
+    .sort((a, b) => b.timestamp - a.timestamp)[0]
+
+  const currentUserInput = latestUserMessage
+    ? formatMessageForSummary(latestUserMessage)
+    : ''
+
+  const apiMessages = await buildApiMessages(
+    sessionId,
+    character,
+    personaDescription,
+    currentUserInput
+  )
+
   const replyContent = await callApi(apiMessages)
 
   const segments = parseAiReply(replyContent)
@@ -871,7 +933,12 @@ export async function sendProactiveReply(
   }
 ): Promise<Message[]> {
   const character = await db.characters.get(characterId)
-  const apiMessages = await buildApiMessages(sessionId, character, personaDescription)
+  const apiMessages = await buildApiMessages(
+    sessionId,
+    character,
+    personaDescription,
+    ''
+  )
 
   const session = await db.chatSessions.get(sessionId)
 
