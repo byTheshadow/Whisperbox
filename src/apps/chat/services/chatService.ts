@@ -1,4 +1,6 @@
-import { db, type Message, type ChatSession, type Character } from '@/core/db'
+import { db, type Message, type ChatSession, type Character, type MemoryEntry } from '@/core/db'
+
+const REAL_USER_DIARY_EVERY_N_MESSAGES = 30
 
 /**
  * 创建新会话
@@ -26,14 +28,14 @@ export async function createSession(
     proactiveNotify: false,
     lastProactiveAt: null,
     lastMessageAt: now,
-    
-  // 新增：主动消息高级设置的默认值
-  proactiveSilentNight: true,
-  proactiveRequirePersonality: true,
-  proactiveAllowDrawing: false,
-  proactiveMinMessageCount: 8,
-  proactiveMaxRecentMessages: 3,
-  proactiveOnlyWhenLongConversation: true,
+
+    // 新增：主动消息高级设置的默认值
+    proactiveSilentNight: true,
+    proactiveRequirePersonality: true,
+    proactiveAllowDrawing: false,
+    proactiveMinMessageCount: 8,
+    proactiveMaxRecentMessages: 3,
+    proactiveOnlyWhenLongConversation: true,
     createdAt: now
   }
 
@@ -117,7 +119,6 @@ export async function deleteSession(sessionId: string): Promise<void> {
   await db.chatSessions.delete(sessionId)
 }
 
-
 /**
  * 构建现实时间上下文
  */
@@ -154,7 +155,6 @@ function buildRealTimeContext(): string {
 你可以自然地感知当前现实时间，例如早安、晚安、深夜关心、日期相关提醒等。
 不要每条消息都机械地提及时间，只有在语境自然或有帮助时使用。`
 }
-
 
 function buildProactiveContext(params: {
   mode: 'daily' | 'roleplay'
@@ -286,6 +286,168 @@ ${personaDescription}
   }
 
   return apiMessages
+}
+
+/**
+ * 格式化消息，供真实 user 日记草稿 AI 使用
+ */
+function formatMessageForDiary(message: Message): string {
+  const roleLabel = message.role === 'assistant'
+    ? '角色'
+    : message.role === 'user'
+      ? 'user'
+      : 'system'
+
+  if (message.media) {
+    if (message.media.type === 'sticker') {
+      return `${roleLabel}：发送了表情包「${message.media.name || '表情包'}」，含义：${message.media.meaning || message.media.description || '无'}`
+    }
+
+    if (message.media.type === 'image') {
+      return `${roleLabel}：发送了图片，描述：${message.media.description || '无'}`
+    }
+
+    if (message.media.type === 'voice') {
+      return `${roleLabel}：发送了语音，描述：${message.media.description || '无'}`
+    }
+  }
+
+  return `${roleLabel}：${message.content || ''}`
+}
+
+/**
+ * 创建 AI 生成的真实 user 日记草稿
+ */
+async function createAiDiaryDraftEntry(params: {
+  session: ChatSession
+  content: string
+  checkpoint: number
+}): Promise<MemoryEntry> {
+  const now = Date.now()
+
+  const entry: MemoryEntry = {
+    id: crypto.randomUUID(),
+    characterId: params.session.characterId,
+    sessionId: params.session.id,
+    type: 'diary',
+    title: `AI 日记草稿 · 第 ${params.checkpoint} 条`,
+    content: params.content,
+    scope: 'daily',
+    isRealUserRelated: true,
+    isPermanent: false,
+    enabled: true,
+    importance: 60,
+    tags: [
+      'real-user',
+      'diary',
+      'ai-generated',
+      `checkpoint:${params.checkpoint}`
+    ],
+    keywords: [],
+    priority: 0,
+    status: 'draft',
+    source: 'ai',
+    createdAt: now,
+    updatedAt: now
+  }
+
+  await db.memoryEntries.add(entry)
+
+  return entry
+}
+
+/**
+ * 每 30 条非 system 消息，尝试为真实 user 生成一条日记草稿
+ */
+async function maybeGenerateRealUserDiaryDraft(sessionId: string): Promise<void> {
+  const session = await db.chatSessions.get(sessionId)
+
+  if (!session) return
+
+  // 只在 daily 模式生成真实 user 日记
+  if (session.mode !== 'daily') return
+
+  // 会话记忆关闭时不生成
+  if (!session.memoryEnabled) return
+
+  const persona = await db.personas.get(session.personaId)
+
+  // 必须是真实 user，人设不能写死
+  if (!persona?.isRealUser) return
+
+  const messages = await getSessionMessages(sessionId)
+
+  // 只统计真实对话消息，不统计 system
+  const conversationMessages = messages.filter(msg => msg.role !== 'system')
+
+  const messageCount = conversationMessages.length
+
+  // 不到 30 条不触发
+  if (messageCount < REAL_USER_DIARY_EVERY_N_MESSAGES) return
+
+  // 只在 30、60、90... 这些节点触发
+  if (messageCount % REAL_USER_DIARY_EVERY_N_MESSAGES !== 0) return
+
+  const checkpoint = messageCount
+
+  // 防止同一个节点重复生成
+  const existing = await db.memoryEntries
+    .where('sessionId')
+    .equals(sessionId)
+    .and(entry =>
+      entry.type === 'diary' &&
+      entry.source === 'ai' &&
+      entry.tags?.includes(`checkpoint:${checkpoint}`)
+    )
+    .first()
+
+  if (existing) return
+
+  const character = await db.characters.get(session.characterId)
+
+  const recentMessages = conversationMessages
+    .slice(-REAL_USER_DIARY_EVERY_N_MESSAGES)
+    .map(formatMessageForDiary)
+    .join('\n')
+
+  const diaryPrompt = [
+    {
+      role: 'system',
+      content: `你正在为 Whisperbox 的 daily 日常陪伴对话撰写“真实 user 日记草稿”。
+
+重要规则：
+1. 这是给用户之后查看和编辑的日记草稿，不是角色回复。
+2. 只记录真实 user 相关的现实情绪、事件、状态、偏好、关系变化。
+3. 不要编造用户没有说过的现实信息。
+4. 不要写 RP 设定，不要把角色扮演内容当成真实 user 日记。
+5. 语言要像温柔、克制的私人日记记录。
+6. 输出只需要日记正文，不要加标题，不要加解释。
+7. 如果这 30 条对话没有值得记录的真实 user 内容，请输出空字符串。`
+    },
+    {
+      role: 'user',
+      content: `当前会话信息：
+模式：${session.mode}
+角色：${character?.name || '未知角色'}
+真实 user 人设：${persona.description || persona.name}
+
+最近 ${REAL_USER_DIARY_EVERY_N_MESSAGES} 条对话：
+${recentMessages}
+
+请基于以上内容，为真实 user 写一条新的日记草稿。`
+    }
+  ]
+
+  const diaryContent = (await callApi(diaryPrompt)).trim()
+
+  // AI 判断没有值得记录的内容时，不保存
+  if (!diaryContent) return
+
+  await createAiDiaryDraftEntry({
+    session,
+    content: diaryContent,
+    checkpoint
+  })
 }
 
 /**
@@ -424,6 +586,14 @@ export async function sendAndGetReply(
     }
   }
 
+  // AI 回复成功入库后，再尝试生成真实 user 日记草稿。
+  // 注意：这里失败不应该影响正常聊天。
+  try {
+    await maybeGenerateRealUserDiaryDraft(sessionId)
+  } catch (error) {
+    console.warn('[memory] 自动生成真实 user 日记草稿失败:', error)
+  }
+
   return resultMessages
 }
 
@@ -433,7 +603,6 @@ export async function sendAndGetReply(
  * 主动触发指令直接加入 API 消息数组，而不是写入数据库 system 消息，
  * 避免被 buildApiMessages 中跳过 system 历史消息的逻辑过滤。
  */
-
 export async function sendProactiveReply(
   sessionId: string,
   characterId: string,
@@ -481,9 +650,16 @@ export async function sendProactiveReply(
     }
   }
 
+  // 主动消息成功入库后，也尝试生成真实 user 日记草稿。
+  // 注意：这里失败不应该影响正常聊天。
+  try {
+    await maybeGenerateRealUserDiaryDraft(sessionId)
+  } catch (error) {
+    console.warn('[memory] 自动生成真实 user 日记草稿失败:', error)
+  }
+
   return resultMessages
 }
-
 
 /**
  * 重新生成某条 AI 消息（删掉旧的，重新请求）
