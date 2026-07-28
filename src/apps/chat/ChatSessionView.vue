@@ -538,8 +538,7 @@
       </Transition>
     </Teleport>
 
-
-    <!-- 记忆设置 -->
+<!-- 记忆设置 -->
 <Teleport to="body">
   <Transition name="fade">
     <div
@@ -547,12 +546,12 @@
       class="modal-overlay"
       @click.self="closeMemorySettingsModal"
     >
-      <div class="mini-modal memory-settings-modal">
+      <div class="mini-modal memory-settings-modal memory-panel-modal">
         <div class="memory-settings-header">
           <div>
             <h4 class="mini-modal-title">记忆设置</h4>
             <p class="memory-settings-subtitle">
-              每个对话框都有自己的记忆系统。这里控制当前会话如何记住你们的日常。
+              每个对话都有自己的记忆系统。这里可以管理当前会话的记忆开关、摘要频率，以及各类记忆条目。
             </p>
           </div>
 
@@ -598,33 +597,122 @@
             />
           </label>
         </div>
+<div class="memory-settings-stats">
+  <div class="memory-stat-card">
+    <span class="memory-stat-number">{{ memoryStats.summary }}</span>
+    <span class="memory-stat-label">摘要</span>
+  </div>
 
-        <div class="memory-settings-stats">
-          <div class="memory-stat-card">
-            <span class="memory-stat-number">{{ memoryStats.summary }}</span>
-            <span class="memory-stat-label">摘要</span>
+  <div class="memory-stat-card">
+    <span class="memory-stat-number">{{ memoryStats.diary }}</span>
+    <span class="memory-stat-label">日记</span>
+  </div>
+
+  <div class="memory-stat-card">
+    <span class="memory-stat-number">{{ memoryStats.worldbook }}</span>
+    <span class="memory-stat-label">世界书</span>
+  </div>
+
+  <div class="memory-stat-card">
+    <span class="memory-stat-number">{{ memoryStats.permanent }}</span>
+    <span class="memory-stat-label">永久记忆</span>
+  </div>
+</div>
+
+<div class="memory-panel-tabs">
+  <button
+    v-for="tab in memoryPanelTabs"
+    :key="tab.key"
+    type="button"
+    class="memory-panel-tab"
+    :class="{ active: activeMemoryPanelTab === tab.key }"
+    @click="activeMemoryPanelTab = tab.key"
+  >
+    {{ tab.label }}
+  </button>
+</div>
+
+<div class="memory-panel-content">
+  <div v-if="memoryPanelLoading" class="memory-panel-empty">加载中…</div>
+
+  <template v-else>
+    <div v-if="currentTabMemoryEntries.length === 0" class="memory-panel-empty">
+      {{ currentTabEmptyText }}
+    </div>
+
+    <div v-else class="memory-entry-list">
+      <div
+        v-for="entry in currentTabMemoryEntries"
+        :key="entry.id"
+        class="memory-entry-card"
+      >
+        <div class="memory-entry-top">
+          <div class="memory-entry-title-wrap">
+            <strong class="memory-entry-title">{{ editingMemoryDrafts[entry.id]?.title || entry.title || '未命名记忆' }}</strong>
+            <span class="memory-entry-meta">
+              {{ formatMemoryType(entry.type) }} · {{ formatDiaryDate(entry.createdAt || Date.now()) }}
+            </span>
           </div>
 
-          <div class="memory-stat-card">
-            <span class="memory-stat-number">{{ memoryStats.diary }}</span>
-            <span class="memory-stat-label">日记</span>
-          </div>
-
-          <div class="memory-stat-card">
-            <span class="memory-stat-number">{{ memoryStats.worldbook }}</span>
-            <span class="memory-stat-label">世界书</span>
-          </div>
-
-          <div class="memory-stat-card">
-            <span class="memory-stat-number">{{ memoryStats.total }}</span>
-            <span class="memory-stat-label">总记忆</span>
+          <div class="memory-entry-actions">
+            <button class="memory-entry-btn" type="button" @click="toggleMemoryEnabled(entry)">
+              {{ editingMemoryDrafts[entry.id]?.enabled ? '禁用' : '启用' }}
+            </button>
+            <button class="memory-entry-btn" type="button" @click="toggleMemoryStatus(entry)">
+              {{ editingMemoryDrafts[entry.id]?.status === 'archived' ? '恢复' : '归档' }}
+            </button>
+            <button class="memory-entry-btn" type="button" @click="saveMemoryEntry(entry)">
+              保存
+            </button>
+            <button
+              class="memory-entry-btn danger"
+              type="button"
+              :disabled="memoryPanelSavingId === entry.id"
+              @click="removeMemoryEntry(entry)"
+            >
+              删除
+            </button>
           </div>
         </div>
 
-        <p class="memory-settings-note">
-          daily 模式下，真实 user 日记只会在当前 user 人设为真实 user 时生成。
-          RP 模式不会写入真实 user 日记。
-        </p>
+        <div class="memory-entry-form">
+          <label class="memory-entry-field">
+            <span>标题</span>
+            <input v-model="editingMemoryDrafts[entry.id].title" type="text" />
+          </label>
+
+          <label class="memory-entry-field">
+            <span>内容</span>
+            <textarea v-model="editingMemoryDrafts[entry.id].content" rows="4"></textarea>
+          </label>
+
+          <label v-if="entry.type === 'worldbook'" class="memory-entry-field">
+            <span>关键词（逗号分隔）</span>
+            <input v-model="editingMemoryDrafts[entry.id].keywordsText" type="text" />
+          </label>
+
+          <div class="memory-entry-grid">
+            <label class="memory-entry-field">
+              <span>重要度</span>
+              <input v-model.number="editingMemoryDrafts[entry.id].importance" type="number" min="0" max="10" />
+            </label>
+
+            <label class="memory-entry-field">
+              <span>优先级</span>
+              <input v-model.number="editingMemoryDrafts[entry.id].priority" type="number" min="0" max="100" />
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </template>
+</div>
+
+<p class="memory-settings-note">
+  daily 模式下，真实 user 日记只会在当前 user 人设为真实 user 时生成。
+  RP 模式不会写入真实 user 日记。
+</p>
+
 
         <div class="mini-modal-actions">
           <button
@@ -656,7 +744,7 @@
     </div>
   </Transition>
 </Teleport>
-
+F
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -861,15 +949,47 @@ import {
   stickerToMessageMedia
 } from './services/stickerService'
 import {
+  createMemoryEntry,
   createRealUserDiaryEntry,
   deleteMemoryEntry,
   getSessionDiaries,
   updateMemoryEntry
 } from './services/memoryService'
 
+
 interface DisplayMessage extends Message {
   quotedContent?: string
 }
+
+type MemoryPanelTab = 'summary' | 'diary' | 'worldbook' | 'permanent'
+
+const memoryPanelTabs: Array<{
+  key: MemoryPanelTab
+  label: string
+  emptyText: string
+}> = [
+  {
+    key: 'summary',
+    label: '摘要',
+    emptyText: '当前会话还没有摘要。达到自动摘要条数后会生成新的摘要记忆。'
+  },
+  {
+    key: 'diary',
+    label: '日记',
+    emptyText: '当前会话还没有真实 user 日记。日记只在 daily 模式下使用。'
+  },
+  {
+    key: 'worldbook',
+    label: '世界书',
+    emptyText: '当前会话还没有绑定世界书条目。这里管理的是当前会话专属世界书。'
+  },
+  {
+    key: 'permanent',
+    label: '永久记忆',
+    emptyText: '当前会话还没有永久记忆。'
+  }
+]
+
 
 const route = useRoute()
 const router = useRouter()
@@ -894,17 +1014,63 @@ const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const showBubbleStyleModal = ref(false)
 const showProactiveModal = ref(false)
+type MemoryPanelTab = 'summary' | 'diary' | 'worldbook' | 'permanent'
+
+const memoryPanelTabs: Array<{
+  key: MemoryPanelTab
+  label: string
+  emptyText: string
+}> = [
+  {
+    key: 'summary',
+    label: '摘要',
+    emptyText: '当前会话还没有摘要。'
+  },
+  {
+    key: 'diary',
+    label: '日记',
+    emptyText: '当前会话还没有真实 user 日记。'
+  },
+  {
+    key: 'worldbook',
+    label: '世界书',
+    emptyText: '当前会话还没有世界书条目。'
+  },
+  {
+    key: 'permanent',
+    label: '永久记忆',
+    emptyText: '当前会话还没有永久记忆。'
+  }
+]
+
 const showMemorySettingsModal = ref(false)
 const memorySettingsSaving = ref(false)
 const memorySettingsEnabled = ref(true)
 const memorySettingsSummarizeEveryN = ref(20)
 
+const memoryPanelLoading = ref(false)
+const memoryPanelSavingId = ref<string | null>(null)
+const activeMemoryPanelTab = ref<MemoryPanelTab>('summary')
+const currentSessionMemories = ref<MemoryEntry[]>([])
+
+const editingMemoryDrafts = reactive<Record<string, {
+  title: string
+  content: string
+  keywordsText: string
+  importance: number
+  priority: number
+  enabled: boolean
+  status: MemoryEntry['status']
+}>>({})
+
 const memoryStats = reactive({
   total: 0,
   summary: 0,
   diary: 0,
-  worldbook: 0
+  worldbook: 0,
+  permanent: 0
 })
+
 
 const showDiaryModal = ref(false)
 
@@ -982,6 +1148,23 @@ const typingIndicatorText = computed(() => {
 const bubbleStyleClass = computed(() => {
   const style = session.value?.bubbleStyle || 'classic'
   return `bubble-style-${style}`
+})
+const currentTabMemoryEntries = computed(() => {
+  return currentSessionMemories.value.filter(entry => entry.type === activeMemoryPanelTab.value)
+})
+
+const currentTabEmptyText = computed(() => {
+  return memoryPanelTabs.find(tab => tab.key === activeMemoryPanelTab.value)?.emptyText || '暂无记忆'
+})
+
+
+const currentMemoryEntries = computed(() => {
+  return memoryEntries.value.filter(entry => entry.type === memoryPanelTab.value)
+})
+
+const currentMemoryEmptyText = computed(() => {
+  const tab = memoryPanelTabs.find(item => item.key === memoryPanelTab.value)
+  return tab?.emptyText || '暂无记忆'
 })
 
 onMounted(async () => {
@@ -1334,12 +1517,58 @@ async function openMemorySettingsModal() {
 
   memorySettingsEnabled.value = session.value.memoryEnabled ?? true
   memorySettingsSummarizeEveryN.value = session.value.memorySummarizeEveryN || 20
+  activeMemoryPanelTab.value = 'summary'
 
   showSessionMenu.value = false
   showMemorySettingsModal.value = true
 
-  await loadMemoryStats()
+  await loadCurrentSessionMemories()
 }
+
+function closeMemorySettingsModal() {
+  showMemorySettingsModal.value = false
+}
+
+function syncMemoryEditorDrafts(entries: MemoryEntry[]) {
+  for (const entry of entries) {
+    editingMemoryDrafts[entry.id] = {
+      title: entry.title || '',
+      content: entry.content || '',
+      keywordsText: Array.isArray(entry.keywords) ? entry.keywords.join(', ') : '',
+      importance: entry.importance ?? 0,
+      priority: entry.priority ?? 0,
+      enabled: entry.enabled !== false,
+      status: entry.status || 'active'
+    }
+  }
+}
+
+async function loadCurrentSessionMemories() {
+  memoryPanelLoading.value = true
+
+  try {
+    const entries = await db.memoryEntries
+      .where('sessionId')
+      .equals(sessionId)
+      .toArray()
+
+    currentSessionMemories.value = entries
+
+    memoryStats.total = entries.length
+    memoryStats.summary = entries.filter(entry => entry.type === 'summary').length
+    memoryStats.diary = entries.filter(entry => entry.type === 'diary' && entry.isRealUserRelated).length
+    memoryStats.worldbook = entries.filter(entry => entry.type === 'worldbook').length
+    memoryStats.permanent = entries.filter(entry => entry.type === 'permanent' || entry.isPermanent).length
+
+    syncMemoryEditorDrafts(entries)
+  } catch (error) {
+    console.error('[memory] 读取会话记忆失败:', error)
+    currentSessionMemories.value = []
+  } finally {
+    memoryPanelLoading.value = false
+  }
+}
+
 
 function closeMemorySettingsModal() {
   showMemorySettingsModal.value = false
@@ -1355,6 +1584,58 @@ async function loadMemoryStats() {
   memoryStats.summary = entries.filter(entry => entry.type === 'summary').length
   memoryStats.diary = entries.filter(entry => entry.type === 'diary').length
   memoryStats.worldbook = entries.filter(entry => entry.type === 'worldbook').length
+}
+
+async function loadMemoryEntries() {
+  memoryPanelLoading.value = true
+
+  try {
+    memoryEntries.value = await db.memoryEntries
+      .where('sessionId')
+      .equals(sessionId)
+      .toArray()
+  } catch (error) {
+    console.error('[memory] 读取会话记忆失败:', error)
+    memoryEntries.value = []
+  } finally {
+    memoryPanelLoading.value = false
+  }
+}
+
+function formatMemoryType(type: string) {
+  switch (type) {
+    case 'summary':
+      return '摘要'
+    case 'diary':
+      return '日记'
+    case 'worldbook':
+      return '世界书'
+    case 'permanent':
+      return '永久记忆'
+    default:
+      return type
+  }
+}
+
+function editMemoryEntry(entry: MemoryEntry) {
+  window.alert(`当前版本先展示记忆条目：\n\n${entry.title || '未命名记忆'}\n\n如需在弹窗内直接编辑，我可以继续帮你补完整编辑表单。`)
+}
+
+async function removeMemoryEntry(entry: MemoryEntry) {
+  const confirmed = window.confirm(`确定删除「${entry.title || '这条记忆'}」吗？此操作无法恢复。`)
+  if (!confirmed) return
+
+  memoryPanelSavingId.value = entry.id
+  try {
+    await deleteMemoryEntry(entry.id)
+    await loadMemoryStats()
+    await loadMemoryEntries()
+  } catch (error) {
+    console.error('[memory] 删除记忆失败:', error)
+    window.alert('记忆删除失败，请稍后再试。')
+  } finally {
+    memoryPanelSavingId.value = null
+  }
 }
 
 async function saveMemorySettings() {
@@ -1379,7 +1660,7 @@ async function saveMemorySettings() {
       memorySummarizeEveryN: summarizeEveryN
     }
 
-    closeMemorySettingsModal()
+    await loadCurrentSessionMemories()
   } catch (error) {
     console.error('[memory] 保存记忆设置失败:', error)
     window.alert('记忆设置没有保存成功，请稍后再试。')
@@ -1387,6 +1668,91 @@ async function saveMemorySettings() {
     memorySettingsSaving.value = false
   }
 }
+
+function formatMemoryType(type: string) {
+  switch (type) {
+    case 'summary':
+      return '摘要'
+    case 'diary':
+      return '日记'
+    case 'worldbook':
+      return '世界书'
+    case 'permanent':
+      return '永久记忆'
+    default:
+      return type
+  }
+}
+
+function ensureMemoryDraft(entry: MemoryEntry) {
+  if (!editingMemoryDrafts[entry.id]) {
+    editingMemoryDrafts[entry.id] = {
+      title: entry.title || '',
+      content: entry.content || '',
+      keywordsText: Array.isArray(entry.keywords) ? entry.keywords.join(', ') : '',
+      importance: entry.importance ?? 0,
+      priority: entry.priority ?? 0,
+      enabled: entry.enabled !== false,
+      status: entry.status || 'active'
+    }
+  }
+  return editingMemoryDrafts[entry.id]
+}
+
+async function saveMemoryEntry(entry: MemoryEntry) {
+  const draft = ensureMemoryDraft(entry)
+
+  memoryPanelSavingId.value = entry.id
+  try {
+    await updateMemoryEntry(entry.id, {
+      title: draft.title.trim(),
+      content: draft.content.trim(),
+      keywords: entry.type === 'worldbook'
+        ? draft.keywordsText.split(',').map(item => item.trim()).filter(Boolean)
+        : entry.keywords || [],
+      importance: Number(draft.importance) || 0,
+      priority: Number(draft.priority) || 0,
+      enabled: draft.enabled,
+      status: draft.status
+    })
+
+    await loadCurrentSessionMemories()
+  } catch (error) {
+    console.error('[memory] 保存记忆失败:', error)
+    window.alert('记忆保存失败，请稍后再试。')
+  } finally {
+    memoryPanelSavingId.value = null
+  }
+}
+
+async function toggleMemoryEnabled(entry: MemoryEntry) {
+  const draft = ensureMemoryDraft(entry)
+  draft.enabled = !draft.enabled
+  await saveMemoryEntry(entry)
+}
+
+async function toggleMemoryStatus(entry: MemoryEntry) {
+  const draft = ensureMemoryDraft(entry)
+  draft.status = draft.status === 'archived' ? 'active' : 'archived'
+  await saveMemoryEntry(entry)
+}
+
+async function removeMemoryEntry(entry: MemoryEntry) {
+  const confirmed = window.confirm(`确定删除「${entry.title || '这条记忆'}」吗？此操作无法恢复。`)
+  if (!confirmed) return
+
+  memoryPanelSavingId.value = entry.id
+  try {
+    await deleteMemoryEntry(entry.id)
+    await loadCurrentSessionMemories()
+  } catch (error) {
+    console.error('[memory] 删除记忆失败:', error)
+    window.alert('记忆删除失败，请稍后再试。')
+  } finally {
+    memoryPanelSavingId.value = null
+  }
+}
+
 
 function goMemoryApp() {
   closeMemorySettingsModal()
@@ -2915,5 +3281,134 @@ watch(() => contextMenu.visible, (visible) => {
     grid-template-columns: repeat(2, 1fr);
   }
 }
+.memory-panel-modal {
+  width: min(760px, calc(100vw - 24px));
+}
+
+.memory-panel-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.memory-panel-tab {
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.72);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.memory-panel-tab.active {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.memory-panel-content {
+  margin-top: 14px;
+  max-height: 340px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.memory-panel-empty {
+  padding: 18px 14px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(245, 245, 245, 0.48);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.memory-entry-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.memory-entry-card {
+  border-radius: 16px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.memory-entry-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.memory-entry-title-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.memory-entry-title {
+  font-size: 13px;
+  color: #fff;
+}
+
+.memory-entry-meta {
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.45);
+}
+
+.memory-entry-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.memory-entry-btn {
+  border: 0;
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.82);
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+}
+
+.memory-entry-btn.danger {
+  color: #ffb4b4;
+}
+
+.memory-entry-form {
+  margin-top: 12px;
+  display: grid;
+  gap: 10px;
+}
+
+.memory-entry-field {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.62);
+}
+
+.memory-entry-field input,
+.memory-entry-field textarea {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  color: #fff;
+  padding: 10px 12px;
+  font-size: 12px;
+  outline: none;
+  resize: vertical;
+}
+
+.memory-entry-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 
 </style>
