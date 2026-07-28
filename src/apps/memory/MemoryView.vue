@@ -1,11 +1,924 @@
 <template>
-  <div class="h-full flex items-center justify-center">
-    <div class="text-center">
-      <p class="gothic-title text-lg opacity-60">记忆</p>
-      <p class="gothic-subtitle text-sm mt-2">模块尚未激活</p>
-      <button class="mt-6 text-xs opacity-40 hover:opacity-70 transition-opacity" @click="$router.push('/')">
+  <div class="memory-page">
+    <header class="memory-header">
+      <button class="memory-back-btn" type="button" @click="$router.push('/')">
         ← 返回
       </button>
-    </div>
+
+      <div>
+        <h1 class="memory-title">记忆</h1>
+        <p class="memory-subtitle">
+          这里收藏着 Chat 里生成的摘要、日记、永久记忆与提示词。
+        </p>
+      </div>
+    </header>
+
+    <section class="memory-toolbar">
+      <input
+        v-model="keyword"
+        class="memory-search"
+        type="text"
+        placeholder="搜索记忆内容、标题、标签…"
+      />
+
+      <select v-model="typeFilter" class="memory-select">
+        <option value="all">全部类型</option>
+        <option value="summary">会话摘要</option>
+        <option value="diary">真实 user 日记</option>
+        <option value="event">事件</option>
+        <option value="custom">自定义记忆</option>
+        <option value="permanent">永久记忆</option>
+        <option value="worldbook">世界书</option>
+        <option value="globalPrompt">全局提示词</option>
+      </select>
+
+      <select v-model="statusFilter" class="memory-select">
+        <option value="all">全部状态</option>
+        <option value="saved">已保存</option>
+        <option value="draft">草稿</option>
+        <option value="archived">已归档</option>
+      </select>
+
+      <button class="memory-action-btn" type="button" @click="openCreateModal">
+        新增记忆
+      </button>
+    </section>
+
+    <main class="memory-main">
+      <p v-if="loading" class="memory-empty">正在读取记忆…</p>
+
+      <p v-else-if="filteredMemories.length === 0" class="memory-empty">
+        暂时没有符合条件的记忆。
+      </p>
+
+      <article
+        v-for="memory in filteredMemories"
+        :key="memory.id"
+        :class="[
+          'memory-card',
+          `type-${memory.type}`,
+          {
+            'is-disabled': !memory.enabled,
+            'is-draft': memory.status === 'draft'
+          }
+        ]"
+      >
+        <div class="memory-card-top">
+          <div>
+            <div class="memory-meta-row">
+              <span class="memory-type">{{ typeLabel(memory.type) }}</span>
+              <span class="memory-scope">{{ scopeLabel(memory.scope) }}</span>
+              <span v-if="memory.status === 'draft'" class="memory-status draft">草稿</span>
+              <span v-else-if="memory.status === 'archived'" class="memory-status archived">归档</span>
+              <span v-if="!memory.enabled" class="memory-status disabled">禁用</span>
+            </div>
+
+            <h2 class="memory-card-title">
+              {{ memory.title || '无标题记忆' }}
+            </h2>
+          </div>
+
+          <span class="memory-date">
+            {{ formatDate(memory.updatedAt || memory.createdAt) }}
+          </span>
+        </div>
+
+        <p class="memory-content">{{ memory.content }}</p>
+
+        <div v-if="memory.tags?.length" class="memory-tags">
+          <span v-for="tag in memory.tags" :key="tag" class="memory-tag">
+            #{{ tag }}
+          </span>
+        </div>
+
+        <div class="memory-card-footer">
+          <span class="memory-extra">
+            重要度 {{ memory.importance }} · 来源 {{ sourceLabel(memory.source) }}
+          </span>
+
+          <div class="memory-actions">
+            <button
+              v-if="memory.status === 'draft'"
+              class="memory-text-btn"
+              type="button"
+              @click="markSaved(memory)"
+            >
+              收下草稿
+            </button>
+
+            <button
+              class="memory-text-btn"
+              type="button"
+              @click="toggleEnabled(memory)"
+            >
+              {{ memory.enabled ? '禁用' : '启用' }}
+            </button>
+
+            <button
+              class="memory-text-btn"
+              type="button"
+              @click="openEditModal(memory)"
+            >
+              编辑
+            </button>
+
+            <button
+              class="memory-text-btn danger"
+              type="button"
+              @click="removeMemory(memory)"
+            >
+              删除
+            </button>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showEditor"
+          class="memory-modal-overlay"
+          @click.self="closeEditor"
+        >
+          <div class="memory-modal">
+            <header class="memory-modal-header">
+              <div>
+                <h3 class="memory-modal-title">
+                  {{ editingId ? '编辑记忆' : '新增记忆' }}
+                </h3>
+                <p class="memory-modal-subtitle">
+                  所有内容都会写入同一个记忆系统，Chat 和记忆 App 会共用。
+                </p>
+              </div>
+
+              <button class="memory-close-btn" type="button" @click="closeEditor">
+                ×
+              </button>
+            </header>
+
+            <div class="memory-form">
+              <label class="memory-field">
+                <span>标题</span>
+                <input v-model="editor.title" type="text" maxlength="120" />
+              </label>
+
+              <label class="memory-field">
+                <span>类型</span>
+                <select v-model="editor.type">
+                  <option value="summary">会话摘要</option>
+                  <option value="diary">真实 user 日记</option>
+                  <option value="event">事件</option>
+                  <option value="custom">自定义记忆</option>
+                  <option value="permanent">永久记忆</option>
+                  <option value="worldbook">世界书</option>
+                  <option value="globalPrompt">全局提示词</option>
+                </select>
+              </label>
+
+              <label class="memory-field">
+                <span>范围</span>
+                <select v-model="editor.scope">
+                  <option value="daily">daily</option>
+                  <option value="roleplay">roleplay</option>
+                  <option value="global">global</option>
+                </select>
+              </label>
+
+              <label class="memory-field">
+                <span>内容</span>
+                <textarea
+                  v-model="editor.content"
+                  rows="8"
+                  maxlength="8000"
+                  placeholder="写下需要被记住的内容…"
+                ></textarea>
+              </label>
+
+              <div class="memory-grid">
+                <label class="memory-field">
+                  <span>重要度</span>
+                  <input
+                    v-model.number="editor.importance"
+                    type="number"
+                    min="0"
+                    max="100"
+                  />
+                </label>
+
+                <label class="memory-field">
+                  <span>优先级</span>
+                  <input
+                    v-model.number="editor.priority"
+                    type="number"
+                    min="0"
+                    max="100"
+                  />
+                </label>
+              </div>
+
+              <label class="memory-field">
+                <span>标签，用英文逗号分隔</span>
+                <input
+                  v-model="editorTagsText"
+                  type="text"
+                  placeholder="real-user, diary"
+                />
+              </label>
+
+              <label class="memory-field">
+                <span>关键词，用英文逗号分隔，主要给世界书使用</span>
+                <input
+                  v-model="editorKeywordsText"
+                  type="text"
+                  placeholder="城堡, 血族, 契约"
+                />
+              </label>
+
+              <div class="memory-checks">
+                <label>
+                  <input v-model="editor.enabled" type="checkbox" />
+                  启用
+                </label>
+
+                <label>
+                  <input v-model="editor.isPermanent" type="checkbox" />
+                  永久记忆
+                </label>
+
+                <label>
+                  <input v-model="editor.isRealUserRelated" type="checkbox" />
+                  真实 user 相关
+                </label>
+              </div>
+            </div>
+
+            <footer class="memory-modal-actions">
+              <button class="memory-modal-btn secondary" type="button" @click="closeEditor">
+                取消
+              </button>
+
+              <button
+                class="memory-modal-btn primary"
+                type="button"
+                :disabled="saving || !editor.content.trim()"
+                @click="saveMemory"
+              >
+                {{ saving ? '保存中…' : '保存' }}
+              </button>
+            </footer>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
+
+<script setup lang="ts">
+import { computed, onMounted, reactive, ref } from 'vue'
+import { db, type MemoryEntry } from '@/core/db'
+
+type MemoryType = MemoryEntry['type']
+type MemoryScope = MemoryEntry['scope']
+
+const loading = ref(false)
+const saving = ref(false)
+const memories = ref<MemoryEntry[]>([])
+
+const keyword = ref('')
+const typeFilter = ref<MemoryType | 'all'>('all')
+const statusFilter = ref<MemoryEntry['status'] | 'all'>('all')
+
+const showEditor = ref(false)
+const editingId = ref<string | null>(null)
+const editorTagsText = ref('')
+const editorKeywordsText = ref('')
+
+const editor = reactive({
+  title: '',
+  type: 'custom' as MemoryType,
+  scope: 'daily' as MemoryScope,
+  content: '',
+  importance: 50,
+  priority: 0,
+  enabled: true,
+  isPermanent: false,
+  isRealUserRelated: false
+})
+
+const filteredMemories = computed(() => {
+  const q = keyword.value.trim().toLowerCase()
+
+  return memories.value
+    .filter(memory => {
+      if (typeFilter.value !== 'all' && memory.type !== typeFilter.value) {
+        return false
+      }
+
+      if (statusFilter.value !== 'all' && memory.status !== statusFilter.value) {
+        return false
+      }
+
+      if (!q) return true
+
+      const haystack = [
+        memory.title,
+        memory.content,
+        memory.type,
+        memory.scope,
+        memory.source,
+        ...(memory.tags || [])
+      ]
+        .join(' ')
+        .toLowerCase()
+
+      return haystack.includes(q)
+    })
+    .sort((a, b) => {
+      const aTime = a.updatedAt || a.createdAt
+      const bTime = b.updatedAt || b.createdAt
+      return bTime - aTime
+    })
+})
+
+onMounted(() => {
+  loadMemories()
+})
+
+async function loadMemories() {
+  loading.value = true
+
+  try {
+    memories.value = await db.memoryEntries.toArray()
+  } catch (error) {
+    console.error('[memory] 读取记忆失败:', error)
+  } finally {
+    loading.value = false
+  }
+}
+
+function openCreateModal() {
+  editingId.value = null
+
+  editor.title = ''
+  editor.type = 'custom'
+  editor.scope = 'daily'
+  editor.content = ''
+  editor.importance = 50
+  editor.priority = 0
+  editor.enabled = true
+  editor.isPermanent = false
+  editor.isRealUserRelated = false
+  editorTagsText.value = ''
+  editorKeywordsText.value = ''
+
+  showEditor.value = true
+}
+
+function openEditModal(memory: MemoryEntry) {
+  editingId.value = memory.id
+
+  editor.title = memory.title || ''
+  editor.type = memory.type
+  editor.scope = memory.scope
+  editor.content = memory.content
+  editor.importance = memory.importance ?? 50
+  editor.priority = memory.priority ?? 0
+  editor.enabled = memory.enabled !== false
+  editor.isPermanent = memory.isPermanent === true
+  editor.isRealUserRelated = memory.isRealUserRelated === true
+  editorTagsText.value = (memory.tags || []).join(', ')
+  editorKeywordsText.value = (memory.keywords || []).join(', ')
+
+  showEditor.value = true
+}
+
+function closeEditor() {
+  showEditor.value = false
+  editingId.value = null
+}
+
+async function saveMemory() {
+  const content = editor.content.trim()
+  if (!content) return
+
+  saving.value = true
+
+  const now = Date.now()
+  const tags = splitTextList(editorTagsText.value)
+  const keywords = splitTextList(editorKeywordsText.value)
+
+  try {
+    if (editingId.value) {
+      await db.memoryEntries.update(editingId.value, {
+        title: editor.title.trim() || defaultTitle(editor.type),
+        type: editor.type,
+        scope: editor.scope,
+        content,
+        importance: clampNumber(editor.importance, 0, 100),
+        priority: clampNumber(editor.priority, 0, 100),
+        enabled: editor.enabled,
+        isPermanent: editor.isPermanent || editor.type === 'permanent',
+        isRealUserRelated: editor.isRealUserRelated || editor.type === 'diary',
+        tags,
+        keywords,
+        status: 'saved',
+        updatedAt: now
+      })
+    } else {
+      const entry: MemoryEntry = {
+        id: crypto.randomUUID(),
+        characterId: '',
+        sessionId: '',
+        type: editor.type,
+        title: editor.title.trim() || defaultTitle(editor.type),
+        content,
+        scope: editor.scope,
+        isRealUserRelated: editor.isRealUserRelated || editor.type === 'diary',
+        isPermanent: editor.isPermanent || editor.type === 'permanent',
+        enabled: editor.enabled,
+        importance: clampNumber(editor.importance, 0, 100),
+        tags,
+        keywords,
+        priority: clampNumber(editor.priority, 0, 100),
+        status: 'saved',
+        source: 'user',
+        createdAt: now,
+        updatedAt: now
+      }
+
+      await db.memoryEntries.add(entry)
+    }
+
+    closeEditor()
+    await loadMemories()
+  } catch (error) {
+    console.error('[memory] 保存记忆失败:', error)
+    window.alert('记忆没有保存成功，请稍后再试。')
+  } finally {
+    saving.value = false
+  }
+}
+
+async function toggleEnabled(memory: MemoryEntry) {
+  await db.memoryEntries.update(memory.id, {
+    enabled: !memory.enabled,
+    updatedAt: Date.now()
+  })
+
+  await loadMemories()
+}
+
+async function markSaved(memory: MemoryEntry) {
+  await db.memoryEntries.update(memory.id, {
+    status: 'saved',
+    updatedAt: Date.now()
+  })
+
+  await loadMemories()
+}
+
+async function removeMemory(memory: MemoryEntry) {
+  const confirmed = window.confirm(`确定删除「${memory.title || '这条记忆'}」吗？此操作无法恢复。`)
+  if (!confirmed) return
+
+  await db.memoryEntries.delete(memory.id)
+  await loadMemories()
+}
+
+function splitTextList(text: string): string[] {
+  return text
+    .split(',')
+    .map(item => item.trim())
+    .filter(Boolean)
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (Number.isNaN(value)) return min
+  return Math.min(max, Math.max(min, value))
+}
+
+function defaultTitle(type: MemoryType): string {
+  const map: Record<MemoryType, string> = {
+    summary: '会话摘要',
+    event: '事件',
+    diary: '真实 user 日记',
+    custom: '自定义记忆',
+    permanent: '永久记忆',
+    worldbook: '世界书条目',
+    globalPrompt: '全局提示词'
+  }
+
+  return map[type]
+}
+
+function typeLabel(type: MemoryType): string {
+  return defaultTitle(type)
+}
+
+function scopeLabel(scope: MemoryScope): string {
+  const map: Record<MemoryScope, string> = {
+    daily: 'daily',
+    roleplay: 'RP',
+    global: '全局'
+  }
+
+  return map[scope]
+}
+
+function sourceLabel(source: MemoryEntry['source']): string {
+  const map: Record<MemoryEntry['source'], string> = {
+    user: '用户',
+    ai: 'AI',
+    system: '系统'
+  }
+
+  return map[source]
+}
+
+function formatDate(timestamp: number): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(timestamp)
+}
+</script>
+
+<style scoped>
+.memory-page {
+  min-height: 100%;
+  padding: 28px;
+  color: rgba(245, 245, 245, 0.86);
+}
+
+.memory-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.memory-back-btn {
+  border: 0;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.45);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.memory-back-btn:hover {
+  color: rgba(245, 245, 245, 0.8);
+}
+
+.memory-title {
+  margin: 0;
+  font-family: var(--font-gothic, serif);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+}
+
+.memory-subtitle {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+.memory-toolbar {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 150px 130px auto;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.memory-search,
+.memory-select,
+.memory-action-btn {
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  outline: none;
+  color: rgba(245, 245, 245, 0.82);
+  background: rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  font-size: 12px;
+}
+
+.memory-search {
+  padding: 0 12px;
+}
+
+.memory-select {
+  padding: 0 9px;
+}
+
+.memory-action-btn {
+  padding: 0 14px;
+  cursor: pointer;
+}
+
+.memory-action-btn:hover,
+.memory-select:hover,
+.memory-search:focus {
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.memory-main {
+  display: grid;
+  gap: 12px;
+}
+
+.memory-empty {
+  margin: 80px 0;
+  text-align: center;
+  font-size: 13px;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+.memory-card {
+  padding: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.045);
+  backdrop-filter: blur(18px);
+}
+
+.memory-card.is-draft {
+  border-left-color: rgba(205, 183, 128, 0.76);
+  background: rgba(205, 183, 128, 0.06);
+}
+
+.memory-card.is-disabled {
+  opacity: 0.48;
+}
+
+.memory-card-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.memory-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.memory-type,
+.memory-scope,
+.memory-status {
+  padding: 2px 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  color: rgba(245, 245, 245, 0.48);
+}
+
+.memory-status.draft {
+  border-color: rgba(205, 183, 128, 0.4);
+  color: rgba(225, 204, 147, 0.88);
+}
+
+.memory-status.archived,
+.memory-status.disabled {
+  color: rgba(245, 245, 245, 0.32);
+}
+
+.memory-card-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.memory-date {
+  white-space: nowrap;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.36);
+}
+
+.memory-content {
+  margin: 12px 0 0;
+  white-space: pre-wrap;
+  font-size: 13px;
+  line-height: 1.75;
+  color: rgba(245, 245, 245, 0.68);
+}
+
+.memory-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.memory-tag {
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.36);
+}
+
+.memory-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.memory-extra {
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.34);
+}
+
+.memory-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.memory-text-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: rgba(245, 245, 245, 0.48);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.memory-text-btn:hover {
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.memory-text-btn.danger:hover {
+  color: rgba(236, 144, 144, 0.95);
+}
+
+.memory-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  background: rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(8px);
+}
+
+.memory-modal {
+  width: min(620px, calc(100vw - 32px));
+  max-height: min(820px, calc(100vh - 32px));
+  overflow-y: auto;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(12, 12, 12, 0.92);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.5);
+}
+
+.memory-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.memory-modal-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.memory-modal-subtitle {
+  margin: 6px 0 0;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.4);
+}
+
+.memory-close-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(245, 245, 245, 0.66);
+  font-size: 20px;
+  cursor: pointer;
+}
+
+.memory-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 18px;
+}
+
+.memory-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.memory-field {
+  display: grid;
+  gap: 6px;
+  font-size: 11px;
+  color: rgba(245, 245, 245, 0.46);
+}
+
+.memory-field input,
+.memory-field select,
+.memory-field textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  outline: none;
+  color: rgba(245, 245, 245, 0.84);
+  background: rgba(0, 0, 0, 0.24);
+  font: inherit;
+}
+
+.memory-field input,
+.memory-field select {
+  height: 34px;
+  padding: 0 10px;
+}
+
+.memory-field textarea {
+  padding: 10px;
+  resize: vertical;
+  line-height: 1.7;
+}
+
+.memory-field input:focus,
+.memory-field select:focus,
+.memory-field textarea:focus {
+  border-color: rgba(255, 255, 255, 0.32);
+}
+
+.memory-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 12px;
+  color: rgba(245, 245, 245, 0.58);
+}
+
+.memory-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.memory-modal-btn {
+  min-width: 76px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(245, 245, 245, 0.82);
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+}
+
+.memory-modal-btn.primary {
+  border-color: rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.memory-modal-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 720px) {
+  .memory-page {
+    padding: 18px;
+  }
+
+  .memory-toolbar {
+    grid-template-columns: 1fr;
+  }
+
+  .memory-card-top,
+  .memory-card-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .memory-actions {
+    justify-content: flex-start;
+  }
+
+  .memory-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+

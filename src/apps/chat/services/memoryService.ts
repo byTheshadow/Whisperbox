@@ -1,5 +1,24 @@
 import { db, type MemoryEntry, type ChatSession } from '@/core/db'
 
+function sortByRecent<T extends { createdAt: number }>(items: T[]): T[] {
+  return [...items].sort((a, b) => b.createdAt - a.createdAt)
+}
+
+function takeRecent<T extends { createdAt: number }>(items: T[], limit: number): T[] {
+  return sortByRecent(items).slice(0, limit).reverse()
+}
+
+function takeByImportance<T extends { createdAt: number; importance: number }>(items: T[], limit: number): T[] {
+  return [...items]
+    .sort((a, b) => {
+      if (b.importance !== a.importance) return b.importance - a.importance
+      return b.createdAt - a.createdAt
+    })
+    .slice(0, limit)
+    .reverse()
+}
+
+
 export type CreateMemoryEntryInput = {
   characterId?: string
   sessionId?: string
@@ -226,6 +245,48 @@ export async function getPromptMemoriesForSession(session: ChatSession): Promise
       globalPrompts: []
     }
   }
+
+  const sessionEntries = await db.memoryEntries
+    .where('sessionId')
+    .equals(session.id)
+    .and(entry => entry.enabled !== false && entry.status !== 'archived')
+    .toArray()
+
+  const globalPrompts = await getEnabledGlobalPrompts()
+
+  const summaries = takeRecent(
+    sessionEntries.filter(entry => entry.type === 'summary'),
+    3
+  )
+
+  const diaries = session.mode === 'daily'
+    ? takeRecent(
+        sessionEntries.filter(entry => entry.type === 'diary' && entry.isRealUserRelated),
+        5
+      )
+    : []
+
+  const permanent = takeByImportance(
+    sessionEntries.filter(entry => entry.type === 'permanent' || entry.isPermanent),
+    5
+  )
+
+  const custom = takeByImportance(
+    sessionEntries.filter(entry => entry.type === 'custom'),
+    5
+  )
+
+  const globalPromptTop = globalPrompts.length > 0 ? [globalPrompts[0]] : []
+
+  return {
+    summaries,
+    diaries,
+    permanent,
+    custom,
+    globalPrompts: globalPromptTop
+  }
+}
+
 
   const sessionEntries = await db.memoryEntries
     .where('sessionId')

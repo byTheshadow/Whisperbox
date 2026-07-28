@@ -1,4 +1,8 @@
 import { db, type Message, type ChatSession, type Character, type MemoryEntry } from '@/core/db'
+import {
+  getPromptMemoriesForSession
+} from './memoryService'
+
 
 const REAL_USER_DIARY_EVERY_N_MESSAGES = 30
 
@@ -199,8 +203,8 @@ ${modeRule}
  * 支持：
  * - 根据会话模式区别 prompt
  * - 用户人设注入
+ * - 全局提示词、会话摘要、永久记忆、自定义记忆、真实 user 日记注入
  * - sticker / image / voice 特殊消息
- * - 为后续记忆系统预留入口
  */
 export async function buildApiMessages(
   sessionId: string,
@@ -210,10 +214,17 @@ export async function buildApiMessages(
   const session = await db.chatSessions.get(sessionId)
   const messages = await getSessionMessages(sessionId)
 
+  if (!session) {
+    return []
+  }
+
+  const memoryBundle = await getPromptMemoriesForSession(session)
+
   const apiMessages: Array<{ role: string; content: string }> = []
 
   let systemPrompt = ''
 
+  // 1. system 基础设定：角色人设与场景
   if (character) {
     systemPrompt += character.systemPrompt
       ? character.systemPrompt
@@ -227,7 +238,7 @@ export async function buildApiMessages(
   systemPrompt += `\n\n${buildRealTimeContext()}`
 
   if (personaDescription) {
-    if (session?.mode === 'daily') {
+    if (session.mode === 'daily') {
       systemPrompt += `\n\n[用户信息：真实user]
 ${personaDescription}
 
@@ -240,6 +251,66 @@ ${personaDescription}
     }
   }
 
+  // 2. 构建记忆块
+  const summaryBlock = buildMemoryBlock(
+    '会话摘要',
+    memoryBundle.summaries.map(item => ({
+      title: item.title,
+      content: item.content
+    }))
+  )
+
+  const diaryBlock = buildMemoryBlock(
+    '真实 user 日记',
+    session.mode === 'daily'
+      ? memoryBundle.diaries.map(item => ({
+          title: item.title,
+          content: item.content
+        }))
+      : []
+  )
+
+  const permanentBlock = buildMemoryBlock(
+    '永久记忆',
+    memoryBundle.permanent.map(item => ({
+      title: item.title,
+      content: item.content
+    }))
+  )
+
+  const customBlock = buildMemoryBlock(
+    '自定义记忆',
+    memoryBundle.custom.map(item => ({
+      title: item.title,
+      content: item.content
+    }))
+  )
+
+  const globalPromptBlock = buildMemoryBlock(
+    '全局提示词',
+    memoryBundle.globalPrompts.map(item => ({
+      title: item.title,
+      content: item.content
+    }))
+  )
+
+  // 3. 按指定顺序拼接记忆：
+  // 全局提示词 → 会话摘要 → 永久记忆 → 自定义记忆 → 真实 user 日记
+  const memoryPrompt = [
+    globalPromptBlock,
+    summaryBlock,
+    permanentBlock,
+    customBlock,
+    diaryBlock
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+
+  if (memoryPrompt) {
+    systemPrompt += `\n\n${memoryPrompt}`
+  }
+
+  // 4. 消息格式说明必须位于记忆块之后
   systemPrompt += `\n\n[消息格式说明]
 你可以在回复中使用以下特殊格式：
 - 图片：[image: 图片描述]
@@ -255,6 +326,7 @@ ${personaDescription}
     apiMessages.push({ role: 'system', content: systemPrompt })
   }
 
+  // 5. 历史聊天消息
   for (const msg of messages) {
     // 数据库中保存的 system 消息不作为历史对话发送给 API。
     // 主动消息触发指令通过 sendProactiveReply 直接追加至 apiMessages。
@@ -264,9 +336,13 @@ ${personaDescription}
 
     if (msg.media) {
       if (msg.media.type === 'image') {
-        content = content ? `${content}\n[image: ${msg.media.description}]` : `[image: ${msg.media.description}]`
+        content = content
+          ? `${content}\n[image: ${msg.media.description}]`
+          : `[image: ${msg.media.description}]`
       } else if (msg.media.type === 'voice') {
-        content = content ? `${content}\n[voice: ${msg.media.description}]` : `[voice: ${msg.media.description}]`
+        content = content
+          ? `${content}\n[voice: ${msg.media.description}]`
+          : `[voice: ${msg.media.description}]`
       } else if (msg.media.type === 'sticker') {
         const name = msg.media.name || '表情包'
         const meaning = msg.media.meaning || msg.media.description || ''
@@ -286,6 +362,48 @@ ${personaDescription}
   }
 
   return apiMessages
+}
+
+
+function buildMemoryBlock(title: string, items: Array<{ title: string; content: string }>): string {
+  if (!items.length) return ''
+
+  return [
+    `【${title}】`,
+    ...items.map((item, index) => {
+      const itemTitle = item.title?.trim() || `${title}${index + 1}`
+      return `- ${itemTitle}：${item.content.trim()}`
+    })
+  ].join('\n')
+}
+
+
+/**
+ * 格式化消息，供会话摘要 AI 使用
+ */
+function formatMessageForSummary(message: Message): string {
+  const roleLabel =
+    message.role === 'assistant'
+      ? '角色'
+      : message.role === 'user'
+        ? 'user'
+        : 'system'
+
+  if (message.media) {
+    if (message.media.type === 'sticker') {
+      return `${roleLabel}：发送了表情包「${message.media.name || '表情包'}」`
+    }
+
+    if (message.media.type === 'image') {
+      return `${roleLabel}：发送了图片，描述：${message.media.description || '无'}`
+    }
+
+    if (message.media.type === 'voice') {
+      return `${roleLabel}：发送了语音，描述：${message.media.description || '无'}`
+    }
+  }
+
+  return `${roleLabel}：${message.content || ''}`
 }
 
 /**
@@ -313,6 +431,46 @@ function formatMessageForDiary(message: Message): string {
   }
 
   return `${roleLabel}：${message.content || ''}`
+}
+
+/**
+ * 创建 AI 生成的会话摘要记忆
+ */
+async function createAiSessionSummaryEntry(params: {
+  session: ChatSession
+  content: string
+  checkpoint: number
+}): Promise<MemoryEntry> {
+  const now = Date.now()
+
+  const entry: MemoryEntry = {
+    id: crypto.randomUUID(),
+    characterId: params.session.characterId,
+    sessionId: params.session.id,
+    type: 'summary',
+    title: `会话摘要 · 第 ${params.checkpoint} 条`,
+    content: params.content,
+    scope: params.session.mode,
+    isRealUserRelated: params.session.mode === 'daily',
+    isPermanent: false,
+    enabled: true,
+    importance: 70,
+    tags: [
+      'summary',
+      'ai-generated',
+      `checkpoint:${params.checkpoint}`
+    ],
+    keywords: [],
+    priority: 0,
+    status: 'saved',
+    source: 'ai',
+    createdAt: now,
+    updatedAt: now
+  }
+
+  await db.memoryEntries.add(entry)
+
+  return entry
 }
 
 /**
@@ -354,6 +512,98 @@ async function createAiDiaryDraftEntry(params: {
   await db.memoryEntries.add(entry)
 
   return entry
+}
+
+/**
+ * 每 memorySummarizeEveryN 条非 system 消息，尝试生成一条新的会话摘要
+ */
+async function maybeGenerateSessionSummary(sessionId: string): Promise<void> {
+  const session = await db.chatSessions.get(sessionId)
+
+  if (!session) return
+
+  // 会话记忆关闭时不生成摘要
+  if (!session.memoryEnabled) return
+
+  const threshold = session.memorySummarizeEveryN || 20
+
+  // 小于等于 0 表示不触发自动摘要
+  if (threshold <= 0) return
+
+  const messages = await getSessionMessages(sessionId)
+
+  // 只统计真实对话消息，不统计 system
+  const conversationMessages = messages.filter(msg => msg.role !== 'system')
+
+  const messageCount = conversationMessages.length
+
+  // 不到阈值不触发
+  if (messageCount < threshold) return
+
+  // 只在 threshold、2 * threshold、3 * threshold... 这些节点触发
+  if (messageCount % threshold !== 0) return
+
+  const checkpoint = messageCount
+
+  // 防止同一个节点重复生成
+  const existing = await db.memoryEntries
+    .where('sessionId')
+    .equals(sessionId)
+    .and(entry =>
+      entry.type === 'summary' &&
+      entry.source === 'ai' &&
+      entry.tags?.includes(`checkpoint:${checkpoint}`)
+    )
+    .first()
+
+  if (existing) return
+
+  const character = await db.characters.get(session.characterId)
+  const persona = await db.personas.get(session.personaId)
+
+  const recentMessages = conversationMessages
+    .slice(-threshold)
+    .map(formatMessageForSummary)
+    .join('\n')
+
+  const summaryPrompt = [
+    {
+      role: 'system',
+      content: `你正在为 Whisperbox 的聊天会话撰写摘要。
+
+重要规则：
+1. 摘要用于记忆系统，不是角色回复。
+2. 只保留有助于后续对话的关键信息。
+3. 简洁、准确、克制。
+4. 不要写无关寒暄。
+5. 不要编造没发生的内容。
+6. 如果这段对话没有值得记录的内容，请输出空字符串。
+7. 输出只需要摘要正文，不要加标题，不要加解释。`
+    },
+    {
+      role: 'user',
+      content: `会话信息：
+模式：${session.mode}
+角色：${character?.name || '未知角色'}
+用户人设：${persona?.description || persona?.name || '未知'}
+
+最近 ${threshold} 条消息：
+${recentMessages}
+
+请基于以上内容生成一条会话摘要。`
+    }
+  ]
+
+  const summaryContent = (await callApi(summaryPrompt)).trim()
+
+  // AI 判断没有值得记录的内容时，不保存
+  if (!summaryContent) return
+
+  await createAiSessionSummaryEntry({
+    session,
+    content: summaryContent,
+    checkpoint
+  })
 }
 
 /**
@@ -586,7 +836,15 @@ export async function sendAndGetReply(
     }
   }
 
-  // AI 回复成功入库后，再尝试生成真实 user 日记草稿。
+  // AI 回复成功入库后，先尝试生成会话摘要。
+  // 注意：这里失败不应该影响正常聊天。
+  try {
+    await maybeGenerateSessionSummary(sessionId)
+  } catch (error) {
+    console.warn('[memory] 自动生成会话摘要失败:', error)
+  }
+
+  // 摘要完成后，再尝试生成真实 user 日记草稿。
   // 注意：这里失败不应该影响正常聊天。
   try {
     await maybeGenerateRealUserDiaryDraft(sessionId)
@@ -650,7 +908,15 @@ export async function sendProactiveReply(
     }
   }
 
-  // 主动消息成功入库后，也尝试生成真实 user 日记草稿。
+  // 主动消息成功入库后，也先尝试生成会话摘要。
+  // 注意：这里失败不应该影响正常聊天。
+  try {
+    await maybeGenerateSessionSummary(sessionId)
+  } catch (error) {
+    console.warn('[memory] 自动生成会话摘要失败:', error)
+  }
+
+  // 摘要完成后，再尝试生成真实 user 日记草稿。
   // 注意：这里失败不应该影响正常聊天。
   try {
     await maybeGenerateRealUserDiaryDraft(sessionId)
