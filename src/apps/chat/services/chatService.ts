@@ -454,6 +454,63 @@ function formatMessageForSummary(message: Message): string {
 }
 
 /**
+ * 构建主动消息触发文本
+ *
+ * 用于主动消息场景下触发世界书。
+ * 注意：
+ * - sticker 不当普通文本处理，而是使用名称、含义、描述参与触发
+ * - image / voice 使用描述参与触发
+ * - daily / roleplay 使用不同主动语境
+ */
+function buildProactiveTriggerText(params: {
+  session: ChatSession
+  character?: Character
+  recentMessages: Message[]
+}): string {
+  const recentText = params.recentMessages
+    .filter(msg => msg.role !== 'system')
+    .slice(-10)
+    .map(msg => {
+      if (msg.media?.type === 'sticker') {
+        return [
+          msg.content,
+          `表情包：${msg.media.name || ''}`,
+          `含义：${msg.media.meaning || ''}`,
+          `描述：${msg.media.description || ''}`
+        ].filter(Boolean).join(' ')
+      }
+
+      if (msg.media?.type === 'image') {
+        return [
+          msg.content,
+          `图片描述：${msg.media.description || ''}`
+        ].filter(Boolean).join(' ')
+      }
+
+      if (msg.media?.type === 'voice') {
+        return [
+          msg.content,
+          `语音描述：${msg.media.description || ''}`
+        ].filter(Boolean).join(' ')
+      }
+
+      return msg.content || ''
+    })
+    .join('\n')
+
+  const modeHint = params.session.mode === 'daily'
+    ? '这是 daily 日常陪伴模式，主动消息应像短短信、问候、关心或自然想起 user。'
+    : '这是 roleplay RP 模式，主动消息应像剧情推进、场景触发、角色来信或氛围延续。'
+
+  return [
+    modeHint,
+    params.character?.name ? `当前角色：${params.character.name}` : '',
+    recentText
+  ].filter(Boolean).join('\n')
+}
+
+
+/**
  * 格式化消息，供真实 user 日记草稿 AI 使用
  */
 function formatMessageForDiary(message: Message): string {
@@ -923,6 +980,7 @@ export async function sendAndGetReply(
  * 主动触发指令直接加入 API 消息数组，而不是写入数据库 system 消息，
  * 避免被 buildApiMessages 中跳过 system 历史消息的逻辑过滤。
  */
+
 export async function sendProactiveReply(
   sessionId: string,
   characterId: string,
@@ -932,26 +990,58 @@ export async function sendProactiveReply(
     conversationLength?: number
   }
 ): Promise<Message[]> {
+  const session = await db.chatSessions.get(sessionId)
+
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`)
+  }
+
   const character = await db.characters.get(characterId)
+  const recentMessages = await getSessionMessages(sessionId)
+
+  const proactiveTriggerText = buildProactiveTriggerText({
+    session,
+    character,
+    recentMessages
+  })
+
   const apiMessages = await buildApiMessages(
     sessionId,
     character,
     personaDescription,
-    ''
+    proactiveTriggerText
   )
-
-  const session = await db.chatSessions.get(sessionId)
 
   apiMessages.push({
     role: 'system',
     content: [
       buildProactiveContext({
-        mode: options?.mode || session?.mode || 'roleplay',
+        mode: options?.mode || session.mode || 'roleplay',
         characterName: character?.name || '角色',
         characterPersonality: character?.personality || '',
-        conversationLength: options?.conversationLength || 0
+        conversationLength: options?.conversationLength || recentMessages.filter(msg => msg.role !== 'system').length
       }),
-      buildRealTimeContext()
+      session.mode === 'daily'
+        ? `【主动消息规则】
+你现在要主动给 user 发一条 daily 日常陪伴短信。
+
+规则：
+1. 短一点，像真实聊天里的主动问候或关心。
+2. 不要像公告、客服或任务提醒。
+3. 可以结合记忆、日记、摘要、最近聊天状态。
+4. 不要假装 user 刚刚说了没说过的话。
+5. 如果使用表情包，必须使用 [sticker: 名称 | 含义 | 描述 | URL] 格式。
+6. 不要刷屏，不要连续追问。`
+        : `【主动消息规则】
+你现在要主动给 user 发一条 RP 模式消息。
+
+规则：
+1. 像剧情推进、场景触发、角色来信或氛围延续。
+2. 可以结合世界书、角色设定、会话摘要和最近剧情。
+3. 不要记录真实 user 日记。
+4. 不要像客服通知。
+5. 如果使用表情包，必须使用 [sticker: 名称 | 含义 | 描述 | URL] 格式。
+6. 不要强行打断剧情，应保持角色语气。`
     ].join('\n\n')
   })
 
@@ -993,6 +1083,7 @@ export async function sendProactiveReply(
 
   return resultMessages
 }
+
 
 /**
  * 重新生成某条 AI 消息（删掉旧的，重新请求）
