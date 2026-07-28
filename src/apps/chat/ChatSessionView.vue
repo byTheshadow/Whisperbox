@@ -1,4 +1,3 @@
-
 <template>
   <div class="chat-session-container" :style="sessionWallpaperStyle">
     <!-- 顶部栏（固定） -->
@@ -48,12 +47,11 @@
     <!-- 消息列表（滚动区域） -->
     <div ref="messageListRef" class="message-list">
       <div
-  v-for="msg in messages"
-  :key="msg.id"
-  :class="['message-row', msg.role]"
-  @contextmenu.prevent="openContextMenu($event, msg)"
->
-
+        v-for="msg in messages"
+        :key="msg.id"
+        :class="['message-row', msg.role]"
+        @contextmenu.prevent="openContextMenu($event, msg)"
+      >
         <!-- 角色头像 -->
         <div v-if="msg.role === 'assistant'" class="msg-avatar">
           <img v-if="character?.avatar" :src="character.avatar" alt="" />
@@ -185,6 +183,19 @@
             <path d="M14 2H6a2 2 0 0 0-2 2v16l4-4h10a2 2 0 0 0 2-2V8z" stroke-linecap="round" stroke-linejoin="round"/>
           </svg>
         </button>
+
+        <button
+          v-if="canUseRealUserDiary"
+          class="tool-btn diary-tool-btn"
+          type="button"
+          title="真实 user 日记"
+          @click="openDiaryModal"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M5 3.5h11a3 3 0 0 1 3 3v14H8a3 3 0 0 0-3 3v-20z" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 7h7M8 11h7M8 15h4" stroke-linecap="round"/>
+          </svg>
+        </button>
       </div>
 
       <div class="input-row">
@@ -229,6 +240,158 @@
       </div>
     </div>
 
+    <!-- 真实 user 日记 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div
+          v-if="showDiaryModal"
+          class="modal-overlay"
+          @click.self="closeDiaryModal"
+        >
+          <div class="mini-modal diary-modal">
+            <div class="diary-modal-header">
+              <div>
+                <h4 class="mini-modal-title">真实 user 日记</h4>
+                <p class="diary-modal-subtitle">
+                  每一页都是独立记录，不会覆盖过去的日记。
+                </p>
+              </div>
+
+              <button
+                class="diary-close-btn"
+                type="button"
+                title="关闭"
+                @click="closeDiaryModal"
+              >
+                ×
+              </button>
+            </div>
+
+            <!-- 新增 / 编辑区 -->
+            <div class="diary-editor">
+              <input
+                v-model="diaryEditorTitle"
+                class="diary-title-input"
+                type="text"
+                maxlength="80"
+                placeholder="日记标题（可选）"
+              />
+
+              <textarea
+                v-model="diaryEditorContent"
+                class="diary-content-input"
+                rows="5"
+                maxlength="4000"
+                :placeholder="editingDiaryId
+                  ? '编辑这条日记…'
+                  : '写下一段想被记住的日常…'"
+              ></textarea>
+
+              <div class="diary-editor-actions">
+                <button
+                  v-if="editingDiaryId"
+                  class="modal-btn secondary"
+                  type="button"
+                  @click="cancelDiaryEditing"
+                >
+                  取消编辑
+                </button>
+
+                <button
+                  class="modal-btn primary"
+                  type="button"
+                  :disabled="!diaryEditorContent.trim() || diarySaving"
+                  @click="saveDiary"
+                >
+                  {{ diarySaving ? '保存中…' : editingDiaryId ? '保存修改' : '新增日记' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- 日记列表 -->
+            <div class="diary-list">
+              <p v-if="diaryLoading" class="diary-empty">正在翻找日记…</p>
+
+              <p v-else-if="diaries.length === 0" class="diary-empty">
+                这里还没有日记。<br />
+                你可以亲手写下第一页，或等陪伴对话慢慢积累。
+              </p>
+
+              <article
+                v-for="diary in diaries"
+                :key="diary.id"
+                :class="['diary-item', { 'is-draft': diary.status === 'draft' }]"
+              >
+                <div class="diary-item-meta">
+                  <span class="diary-item-date">{{ formatDiaryDate(diary.createdAt) }}</span>
+
+                  <span
+                    v-if="diary.status === 'draft'"
+                    class="diary-status draft"
+                  >
+                    AI 草稿
+                  </span>
+
+                  <span
+                    v-else-if="diary.source === 'ai'"
+                    class="diary-status"
+                  >
+                    AI 整理
+                  </span>
+
+                  <span
+                    v-else
+                    class="diary-status"
+                  >
+                    手写
+                  </span>
+                </div>
+
+                <h5 v-if="diary.title" class="diary-item-title">
+                  {{ diary.title }}
+                </h5>
+
+                <p class="diary-item-content">{{ diary.content }}</p>
+
+                <div class="diary-item-actions">
+                  <button
+                    v-if="diary.status === 'draft'"
+                    class="diary-text-btn"
+                    type="button"
+                    @click="approveDiaryDraft(diary)"
+                  >
+                    收下草稿
+                  </button>
+
+                  <button
+                    class="diary-text-btn"
+                    type="button"
+                    @click="startDiaryEditing(diary)"
+                  >
+                    编辑
+                  </button>
+
+                  <button
+                    class="diary-text-btn danger"
+                    type="button"
+                    @click="removeDiary(diary)"
+                  >
+                    删除
+                  </button>
+                </div>
+              </article>
+            </div>
+
+            <div class="mini-modal-actions">
+              <button class="modal-btn secondary" type="button" @click="closeDiaryModal">
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      </Transition>
+    </Teleport>
+
     <!-- 气泡样式设置 -->
     <Teleport to="body">
       <Transition name="fade">
@@ -259,120 +422,119 @@
       </Transition>
     </Teleport>
 
-  <!-- 主动消息设置 -->
-<Teleport to="body">
-  <Transition name="fade">
-    <div v-if="showProactiveModal" class="modal-overlay" @click.self="showProactiveModal = false">
-      <div class="mini-modal">
-        <h4 class="mini-modal-title">主动消息设置</h4>
+    <!-- 主动消息设置 -->
+    <Teleport to="body">
+      <Transition name="fade">
+        <div v-if="showProactiveModal" class="modal-overlay" @click.self="showProactiveModal = false">
+          <div class="mini-modal">
+            <h4 class="mini-modal-title">主动消息设置</h4>
 
-        <label class="setting-row">
-          <span>
-            <strong>允许角色主动发消息</strong>
-            <small>页面打开时，角色可按频率主动传讯。</small>
-          </span>
-          <input v-model="proactiveForm.enabled" type="checkbox" />
-        </label>
+            <label class="setting-row">
+              <span>
+                <strong>允许角色主动发消息</strong>
+                <small>页面打开时，角色可按频率主动传讯。</small>
+              </span>
+              <input v-model="proactiveForm.enabled" type="checkbox" />
+            </label>
 
-        <label class="setting-row">
-          <span>
-            <strong>允许夜间静默</strong>
-            <small>夜间（23:00–7:00）不主动打扰。</small>
-          </span>
-          <input v-model="proactiveForm.silentNight" type="checkbox" />
-        </label>
+            <label class="setting-row">
+              <span>
+                <strong>允许夜间静默</strong>
+                <small>夜间（23:00–7:00）不主动打扰。</small>
+              </span>
+              <input v-model="proactiveForm.silentNight" type="checkbox" />
+            </label>
 
-        <label class="setting-row">
-          <span>
-            <strong>必须按角色性格触发</strong>
-            <small>主动消息必须符合角色性格。</small>
-          </span>
-          <input v-model="proactiveForm.requirePersonality" type="checkbox" />
-        </label>
+            <label class="setting-row">
+              <span>
+                <strong>必须按角色性格触发</strong>
+                <small>主动消息必须符合角色性格。</small>
+              </span>
+              <input v-model="proactiveForm.requirePersonality" type="checkbox" />
+            </label>
 
-        <label class="setting-row">
-          <span>
-            <strong>允许绘画触发</strong>
-            <small>角色可在合适时使用绘画/图像表达。</small>
-          </span>
-          <input v-model="proactiveForm.allowDrawing" type="checkbox" />
-        </label>
+            <label class="setting-row">
+              <span>
+                <strong>允许绘画触发</strong>
+                <small>角色可在合适时使用绘画/图像表达。</small>
+              </span>
+              <input v-model="proactiveForm.allowDrawing" type="checkbox" />
+            </label>
 
-        <label class="setting-row">
-          <span>
-            <strong>仅在长对话中主动</strong>
-            <small>避免过短对话或连续刷屏。</small>
-          </span>
-          <input v-model="proactiveForm.onlyWhenLongConversation" type="checkbox" />
-        </label>
+            <label class="setting-row">
+              <span>
+                <strong>仅在长对话中主动</strong>
+                <small>避免过短对话或连续刷屏。</small>
+              </span>
+              <input v-model="proactiveForm.onlyWhenLongConversation" type="checkbox" />
+            </label>
 
-        <div class="form-group">
-          <label class="form-label">频率</label>
-          <select v-model.number="proactiveForm.frequencyMinutes" class="form-input">
-            <option :value="30">约每 30 分钟</option>
-            <option :value="60">约每 1 小时</option>
-            <option :value="120">约每 2 小时</option>
-            <option :value="360">约每 6 小时</option>
-            <option :value="720">约每 12 小时</option>
-            <option :value="1440">约每天</option>
-          </select>
+            <div class="form-group">
+              <label class="form-label">频率</label>
+              <select v-model.number="proactiveForm.frequencyMinutes" class="form-input">
+                <option :value="30">约每 30 分钟</option>
+                <option :value="60">约每 1 小时</option>
+                <option :value="120">约每 2 小时</option>
+                <option :value="360">约每 6 小时</option>
+                <option :value="720">约每 12 小时</option>
+                <option :value="1440">约每天</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">最少对话消息数</label>
+              <input
+                v-model.number="proactiveForm.minMessageCount"
+                class="form-input"
+                type="number"
+                min="1"
+              />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">近 1 小时最多消息数</label>
+              <input
+                v-model.number="proactiveForm.maxRecentMessages"
+                class="form-input"
+                type="number"
+                min="0"
+              />
+            </div>
+
+            <label class="setting-row">
+              <span>
+                <strong>允许系统通知</strong>
+                <small>浏览器会请求通知权限。</small>
+              </span>
+              <input v-model="proactiveForm.notify" type="checkbox" />
+            </label>
+
+            <p class="setting-note">
+              注：静态网页无法保证关闭页面后仍后台运行。PWA 安装后或未来 Tauri 桌面端会更稳定。
+            </p>
+
+            <div class="mini-modal-actions">
+              <button
+                class="modal-btn secondary"
+                type="button"
+                :disabled="aiLoading"
+                @click="triggerProactiveNow"
+              >
+                立即触发一次
+              </button>
+
+              <button class="modal-btn secondary" type="button" @click="showProactiveModal = false">
+                取消
+              </button>
+
+              <button class="modal-btn primary" type="button" @click="saveProactiveSettings">
+                保存
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div class="form-group">
-          <label class="form-label">最少对话消息数</label>
-          <input
-            v-model.number="proactiveForm.minMessageCount"
-            class="form-input"
-            type="number"
-            min="1"
-          />
-        </div>
-
-        <div class="form-group">
-          <label class="form-label">近 1 小时最多消息数</label>
-          <input
-            v-model.number="proactiveForm.maxRecentMessages"
-            class="form-input"
-            type="number"
-            min="0"
-          />
-        </div>
-
-        <label class="setting-row">
-          <span>
-            <strong>允许系统通知</strong>
-            <small>浏览器会请求通知权限。</small>
-          </span>
-          <input v-model="proactiveForm.notify" type="checkbox" />
-        </label>
-
-        <p class="setting-note">
-          注：静态网页无法保证关闭页面后仍后台运行。PWA 安装后或未来 Tauri 桌面端会更稳定。
-        </p>
-
-        <div class="mini-modal-actions">
-          <button
-            class="modal-btn secondary"
-            type="button"
-            :disabled="aiLoading"
-            @click="triggerProactiveNow"
-          >
-            立即触发一次
-          </button>
-
-          <button class="modal-btn secondary" type="button" @click="showProactiveModal = false">
-            取消
-          </button>
-
-          <button class="modal-btn primary" type="button" @click="saveProactiveSettings">
-            保存
-          </button>
-        </div>
-      </div>
-    </div>
-  </Transition>
-</Teleport>
-
+      </Transition>
+    </Teleport>
 
     <!-- 假图片输入弹窗 -->
     <Teleport to="body">
@@ -560,7 +722,8 @@ import {
   type Character,
   type Persona,
   type ChatSession,
-  type StickerItem
+  type StickerItem,
+  type MemoryEntry
 } from '@/core/db'
 import {
   addMessage,
@@ -576,6 +739,12 @@ import {
   getEnabledStickers,
   stickerToMessageMedia
 } from './services/stickerService'
+import {
+  createRealUserDiaryEntry,
+  deleteMemoryEntry,
+  getSessionDiaries,
+  updateMemoryEntry
+} from './services/memoryService'
 
 interface DisplayMessage extends Message {
   quotedContent?: string
@@ -604,32 +773,21 @@ const messageListRef = ref<HTMLElement | null>(null)
 const textareaRef = ref<HTMLTextAreaElement | null>(null)
 const showBubbleStyleModal = ref(false)
 const showProactiveModal = ref(false)
+
+const showDiaryModal = ref(false)
+const diaryLoading = ref(false)
+const diarySaving = ref(false)
+const diaries = ref<MemoryEntry[]>([])
+const diaryEditorTitle = ref('')
+const diaryEditorContent = ref('')
+const editingDiaryId = ref<string | null>(null)
+
 const bubbleStyleOptions = [
-  {
-    value: 'classic',
-    label: '经典玻璃',
-    description: '默认黑白毛玻璃气泡'
-  },
-  {
-    value: 'soft',
-    label: '柔和雾面',
-    description: '更轻、更圆润'
-  },
-  {
-    value: 'sharp',
-    label: '锐利边框',
-    description: '更冷、更清晰'
-  },
-  {
-    value: 'paper',
-    label: '纸片感',
-    description: '像便签纸一样的低饱和气泡'
-  },
-  {
-    value: 'transparent',
-    label: '透明低干扰',
-    description: '弱化气泡背景，适合壁纸'
-  }
+  { value: 'classic', label: '经典玻璃', description: '默认黑白毛玻璃气泡' },
+  { value: 'soft', label: '柔和雾面', description: '更轻、更圆润' },
+  { value: 'sharp', label: '锐利边框', description: '更冷、更清晰' },
+  { value: 'paper', label: '纸片感', description: '像便签纸一样的低饱和气泡' },
+  { value: 'transparent', label: '透明低干扰', description: '弱化气泡背景，适合壁纸' }
 ]
 
 const proactiveForm = reactive({
@@ -643,7 +801,6 @@ const proactiveForm = reactive({
   maxRecentMessages: 3,
   onlyWhenLongConversation: true
 })
-
 
 const stickers = ref<StickerItem[]>([])
 const newSticker = reactive({
@@ -664,6 +821,10 @@ const sessionModeLabel = computed(() => {
   if (session.value?.mode === 'daily') return '日常模式'
   if (session.value?.mode === 'roleplay') return 'RP 模式'
   return ''
+})
+
+const canUseRealUserDiary = computed(() => {
+  return session.value?.mode === 'daily' && userPersona.value?.isRealUser === true
 })
 
 const sessionWallpaperStyle = computed(() => {
@@ -703,33 +864,29 @@ onMounted(async () => {
   if (session.value.personaId) {
     userPersona.value = await db.personas.get(session.value.personaId) || null
   }
-wallpaperInput.value = session.value.wallpaper || ''
 
-proactiveForm.enabled = Boolean(session.value.proactiveEnabled)
-proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
-proactiveForm.notify = Boolean(session.value.proactiveNotify)
+  wallpaperInput.value = session.value.wallpaper || ''
 
-// 下面这些字段用 ?? 保留默认值：
-// 旧会话没有这些字段时，会使用右侧默认值
-// 已经保存过 false 的字段，不会被误改成 true
-proactiveForm.silentNight = session.value.proactiveSilentNight ?? true
-proactiveForm.requirePersonality = session.value.proactiveRequirePersonality ?? true
-proactiveForm.allowDrawing = session.value.proactiveAllowDrawing ?? false
-proactiveForm.minMessageCount = session.value.proactiveMinMessageCount ?? 8
-proactiveForm.maxRecentMessages = session.value.proactiveMaxRecentMessages ?? 3
-proactiveForm.onlyWhenLongConversation =
-  session.value.proactiveOnlyWhenLongConversation ?? true
+  proactiveForm.enabled = Boolean(session.value.proactiveEnabled)
+  proactiveForm.frequencyMinutes = session.value.proactiveFrequencyMinutes || 120
+  proactiveForm.notify = Boolean(session.value.proactiveNotify)
+  proactiveForm.silentNight = session.value.proactiveSilentNight ?? true
+  proactiveForm.requirePersonality = session.value.proactiveRequirePersonality ?? true
+  proactiveForm.allowDrawing = session.value.proactiveAllowDrawing ?? false
+  proactiveForm.minMessageCount = session.value.proactiveMinMessageCount ?? 8
+  proactiveForm.maxRecentMessages = session.value.proactiveMaxRecentMessages ?? 3
+  proactiveForm.onlyWhenLongConversation = session.value.proactiveOnlyWhenLongConversation ?? true
 
-await loadMessages()
-await loadStickers()
-scrollToBottom()
+  await loadMessages()
+  await loadStickers()
+  scrollToBottom()
 
-startProactiveScheduler()
+  startProactiveScheduler()
 })
+
 onBeforeUnmount(() => {
   stopProactiveScheduler()
 })
-
 
 async function loadMessages() {
   const raw = await getSessionMessages(sessionId)
@@ -805,7 +962,6 @@ async function sendToAi() {
 
     scrollToBottom()
   } catch (err: any) {
-    // 安抚性提示 + 具体错误
     const comfortText = getErrorComfort()
     const errorContent = `${comfortText}\n\n[具体错误] ${err.message}`
     const errorMsg = await addMessage(sessionId, 'system', errorContent)
@@ -920,9 +1076,128 @@ function toggleMediaReveal(msgId: string) {
   }
 }
 
+// 真实 user 日记
+async function loadDiaries() {
+  diaryLoading.value = true
+
+  try {
+    const result = await getSessionDiaries(sessionId)
+    diaries.value = [...result].sort((a, b) => b.createdAt - a.createdAt)
+  } catch (error) {
+    console.error('[memory] 读取日记失败:', error)
+  } finally {
+    diaryLoading.value = false
+  }
+}
+
+async function openDiaryModal() {
+  if (!canUseRealUserDiary.value) return
+
+  showDiaryModal.value = true
+  cancelDiaryEditing()
+  await loadDiaries()
+}
+
+function closeDiaryModal() {
+  showDiaryModal.value = false
+  cancelDiaryEditing()
+}
+
+function cancelDiaryEditing() {
+  editingDiaryId.value = null
+  diaryEditorTitle.value = ''
+  diaryEditorContent.value = ''
+}
+
+function startDiaryEditing(diary: MemoryEntry) {
+  editingDiaryId.value = diary.id
+  diaryEditorTitle.value = diary.title
+  diaryEditorContent.value = diary.content
+}
+
+async function saveDiary() {
+  if (!session.value || !canUseRealUserDiary.value) return
+
+  const content = diaryEditorContent.value.trim()
+  const title = diaryEditorTitle.value.trim()
+
+  if (!content) return
+
+  diarySaving.value = true
+
+  try {
+    if (editingDiaryId.value) {
+      await updateMemoryEntry(editingDiaryId.value, {
+        title: title || '真实 user 日记',
+        content,
+        status: 'saved'
+      })
+    } else {
+      await createRealUserDiaryEntry({
+        session: session.value,
+        title: title || '真实 user 日记',
+        content,
+        source: 'user',
+        status: 'saved'
+      })
+    }
+
+    cancelDiaryEditing()
+    await loadDiaries()
+  } catch (error) {
+    console.error('[memory] 保存日记失败:', error)
+    window.alert('日记没有保存成功，请稍后再试。')
+  } finally {
+    diarySaving.value = false
+  }
+}
+
+async function approveDiaryDraft(diary: MemoryEntry) {
+  try {
+    await updateMemoryEntry(diary.id, {
+      status: 'saved'
+    })
+
+    await loadDiaries()
+  } catch (error) {
+    console.error('[memory] 确认日记草稿失败:', error)
+    window.alert('暂时无法确认这条草稿。')
+  }
+}
+
+async function removeDiary(diary: MemoryEntry) {
+  const confirmed = window.confirm(
+    `确定删除「${diary.title || '这条日记'}」吗？此操作无法恢复。`
+  )
+
+  if (!confirmed) return
+
+  try {
+    await deleteMemoryEntry(diary.id)
+
+    if (editingDiaryId.value === diary.id) {
+      cancelDiaryEditing()
+    }
+
+    await loadDiaries()
+  } catch (error) {
+    console.error('[memory] 删除日记失败:', error)
+    window.alert('日记没有删除成功，请稍后再试。')
+  }
+}
+
+function formatDiaryDate(timestamp: number): string {
+  return new Intl.DateTimeFormat('zh-CN', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).format(timestamp)
+}
+
 // 右键菜单 — 对所有消息生效（user + assistant）
 function openContextMenu(e: MouseEvent | TouchEvent, msg: Message) {
-  // 不对 system 消息弹菜单
   if (msg.role === 'system') return
 
   const clientX = 'touches' in e ? e.touches[0]?.clientX || 0 : e.clientX
@@ -1007,18 +1282,18 @@ async function handleClearMessages() {
   closeContextMenu()
   showSessionMenu.value = false
 }
-// 删除当前对话及其消息
-async function handleDeleteSession() {
-  if (!window.confirm('确定删除这个对话吗？所有聊天记录将一并删除，且无法恢复。')) return
 
-  // 删除会话关联的消息；Dexie 不会自动级联删除。
+// 删除当前对话及其消息/记忆
+async function handleDeleteSession() {
+  if (!window.confirm('确定删除这个对话吗？所有聊天记录、日记和会话记忆将一并删除，且无法恢复。')) return
+
   await db.messages.where('sessionId').equals(sessionId).delete()
+  await db.memoryEntries.where('sessionId').equals(sessionId).delete()
   await db.chatSessions.delete(sessionId)
 
   showSessionMenu.value = false
   router.push('/chat')
 }
-
 
 // 设置壁纸
 function handleSetWallpaper() {
@@ -1100,7 +1375,6 @@ async function saveProactiveSettings() {
   showProactiveModal.value = false
 }
 
-
 async function triggerProactiveNow() {
   if (!session.value || aiLoading.value) return
 
@@ -1113,12 +1387,11 @@ async function triggerProactiveNow() {
       ? await db.personas.get(session.value.personaId)
       : null
 
-    // 插入一条 system 消息作为后台触发信号，不展示也可以之后改成不入库
     const replyMessages = await sendProactiveReply(
-  sessionId,
-  session.value.characterId,
-  persona?.description || ''
-)
+      sessionId,
+      session.value.characterId,
+      persona?.description || ''
+    )
 
     for (const msg of replyMessages) {
       messages.value.push({ ...msg })
@@ -1173,8 +1446,6 @@ watch(() => contextMenu.visible, (visible) => {
 })
 </script>
 
-
-
 <style scoped>
 .chat-session-container {
   display: flex;
@@ -1189,7 +1460,6 @@ watch(() => contextMenu.visible, (visible) => {
   background-repeat: no-repeat;
 }
 
-/* Header — 固定 */
 .chat-header {
   display: flex;
   align-items: center;
@@ -1328,7 +1598,6 @@ watch(() => contextMenu.visible, (visible) => {
   color: #e57373;
 }
 
-/* Message List — 滚动区域 */
 .message-list {
   flex: 1;
   overflow-y: auto;
@@ -1398,7 +1667,6 @@ watch(() => contextMenu.visible, (visible) => {
   align-items: flex-start;
 }
 
-/* Quote in bubble */
 .msg-quote {
   padding: 4px 10px;
   font-size: 12px;
@@ -1411,7 +1679,6 @@ watch(() => contextMenu.visible, (visible) => {
   white-space: nowrap;
 }
 
-/* Bubble */
 .msg-bubble {
   padding: 10px 14px;
   border-radius: 18px;
@@ -1453,7 +1720,6 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.3);
 }
 
-/* Typing indicator */
 .msg-bubble.typing {
   display: flex;
   align-items: center;
@@ -1488,7 +1754,6 @@ watch(() => contextMenu.visible, (visible) => {
   40% { transform: scale(1); opacity: 1; }
 }
 
-/* Media */
 .media-bubble {
   padding: 0 !important;
   overflow: hidden;
@@ -1589,7 +1854,6 @@ watch(() => contextMenu.visible, (visible) => {
   50% { transform: scaleY(1.2); }
 }
 
-/* Quote bar */
 .quote-bar {
   display: flex;
   align-items: center;
@@ -1639,7 +1903,6 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.9);
 }
 
-/* Input area — 固定底部 */
 .input-area {
   padding: 10px 16px 16px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
@@ -1671,6 +1934,22 @@ watch(() => contextMenu.visible, (visible) => {
 .tool-btn:hover {
   color: rgba(245, 245, 245, 0.9);
   background: rgba(255, 255, 255, 0.05);
+}
+
+.diary-tool-btn {
+  position: relative;
+}
+
+.diary-tool-btn::after {
+  content: '';
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: rgba(245, 245, 245, 0.72);
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.45);
 }
 
 .input-row {
@@ -1746,7 +2025,6 @@ watch(() => contextMenu.visible, (visible) => {
   background: #fff;
 }
 
-/* Context menu */
 .context-menu {
   position: fixed;
   background: #2c2c2e;
@@ -1775,7 +2053,6 @@ watch(() => contextMenu.visible, (visible) => {
   background: rgba(255, 255, 255, 0.05);
 }
 
-/* Mini modal */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -1795,6 +2072,181 @@ watch(() => contextMenu.visible, (visible) => {
   background: #1c1c1e;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 14px;
+}
+
+.diary-modal {
+  width: min(540px, calc(100vw - 32px));
+  max-height: min(760px, calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+}
+
+.diary-modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.diary-modal-subtitle {
+  margin: 5px 0 0;
+  font-size: 11px;
+  line-height: 1.55;
+  color: rgba(245, 245, 245, 0.42);
+}
+
+.diary-close-btn {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  color: rgba(245, 245, 245, 0.65);
+  background: rgba(255, 255, 255, 0.06);
+  font-size: 21px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.diary-close-btn:hover {
+  color: rgba(255, 255, 255, 0.95);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.diary-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 18px 0 14px;
+  padding: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.diary-title-input,
+.diary-content-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  outline: none;
+  color: rgba(255, 255, 255, 0.86);
+  background: rgba(0, 0, 0, 0.2);
+  font: inherit;
+}
+
+.diary-title-input {
+  padding: 9px 10px;
+  font-size: 12px;
+}
+
+.diary-content-input {
+  min-height: 100px;
+  padding: 10px;
+  resize: vertical;
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.diary-title-input:focus,
+.diary-content-input:focus {
+  border-color: rgba(255, 255, 255, 0.36);
+  background: rgba(0, 0, 0, 0.28);
+}
+
+.diary-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.diary-list {
+  min-height: 80px;
+  overflow-y: auto;
+  padding-right: 3px;
+}
+
+.diary-empty {
+  margin: 16px 0;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1.8;
+  color: rgba(245, 245, 245, 0.4);
+}
+
+.diary-item {
+  margin-bottom: 10px;
+  padding: 13px;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.diary-item.is-draft {
+  border-left-color: rgba(205, 183, 128, 0.72);
+  background: rgba(205, 183, 128, 0.06);
+}
+
+.diary-item-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.diary-item-date {
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(245, 245, 245, 0.4);
+}
+
+.diary-status {
+  padding: 2px 6px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 10px;
+  color: rgba(245, 245, 245, 0.48);
+}
+
+.diary-status.draft {
+  border-color: rgba(205, 183, 128, 0.36);
+  color: rgba(225, 204, 147, 0.88);
+}
+
+.diary-item-title {
+  margin: 0 0 7px;
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.diary-item-content {
+  margin: 0;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.75;
+  color: rgba(245, 245, 245, 0.67);
+}
+
+.diary-item-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.diary-text-btn {
+  padding: 0;
+  border: 0;
+  color: rgba(245, 245, 245, 0.48);
+  background: transparent;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.diary-text-btn:hover {
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.diary-text-btn.danger:hover {
+  color: rgba(236, 144, 144, 0.95);
 }
 
 .sticker-modal {
@@ -1878,7 +2330,6 @@ watch(() => contextMenu.visible, (visible) => {
   cursor: not-allowed;
 }
 
-/* Sticker picker */
 .sticker-empty {
   padding: 18px;
   margin-bottom: 16px;
@@ -1983,7 +2434,6 @@ watch(() => contextMenu.visible, (visible) => {
   margin-top: 2px;
 }
 
-/* Transitions */
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.15s ease;
@@ -1993,7 +2443,7 @@ watch(() => contextMenu.visible, (visible) => {
 .fade-leave-to {
   opacity: 0;
 }
-/* Bubble style modal */
+
 .bubble-style-list {
   display: flex;
   flex-direction: column;
@@ -2032,7 +2482,6 @@ watch(() => contextMenu.visible, (visible) => {
   color: rgba(245, 245, 245, 0.42);
 }
 
-/* Bubble presets */
 .msg-bubble.bubble-style-classic.assistant {
   background: rgba(255, 255, 255, 0.08);
 }
@@ -2136,6 +2585,4 @@ watch(() => contextMenu.visible, (visible) => {
   line-height: 1.6;
   color: rgba(245, 245, 245, 0.38);
 }
-
-
 </style>
