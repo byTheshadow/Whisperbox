@@ -18,7 +18,6 @@ function takeByImportance<T extends { createdAt: number; importance: number }>(i
     .reverse()
 }
 
-
 export type CreateMemoryEntryInput = {
   characterId?: string
   sessionId?: string
@@ -259,12 +258,13 @@ export async function getPromptMemoriesForSession(session: ChatSession): Promise
     3
   )
 
-  const diaries = session.mode === 'daily'
-    ? takeRecent(
-        sessionEntries.filter(entry => entry.type === 'diary' && entry.isRealUserRelated),
-        5
-      )
-    : []
+  const diaries =
+    session.mode === 'daily'
+      ? takeRecent(
+          sessionEntries.filter(entry => entry.type === 'diary' && entry.isRealUserRelated),
+          5
+        )
+      : []
 
   const permanent = takeByImportance(
     sessionEntries.filter(entry => entry.type === 'permanent' || entry.isPermanent),
@@ -284,37 +284,5 @@ export async function getPromptMemoriesForSession(session: ChatSession): Promise
     permanent,
     custom,
     globalPrompts: globalPromptTop
-  }
-}
-
-
-  const sessionEntries = await db.memoryEntries
-    .where('sessionId')
-    .equals(session.id)
-    .and(entry => entry.enabled !== false && entry.status !== 'archived')
-    .toArray()
-
-  const globalPrompts = await getEnabledGlobalPrompts()
-
-  return {
-    summaries: sessionEntries
-      .filter(entry => entry.type === 'summary')
-      .sort((a, b) => a.createdAt - b.createdAt),
-
-    diaries: session.mode === 'daily'
-      ? sessionEntries
-          .filter(entry => entry.type === 'diary' && entry.isRealUserRelated)
-          .sort((a, b) => a.createdAt - b.createdAt)
-      : [],
-
-    permanent: sessionEntries
-      .filter(entry => entry.type === 'permanent' || entry.isPermanent)
-      .sort((a, b) => b.importance - a.importance),
-
-    custom: sessionEntries
-      .filter(entry => entry.type === 'custom')
-      .sort((a, b) => b.importance - a.importance),
-
-    globalPrompts: globalPrompts.sort((a, b) => b.priority - a.priority)
   }
 }
