@@ -19,7 +19,6 @@ export async function createSession(
     title: character?.name || '新对话',
     wallpaper: '',
     bubbleStyle: 'classic',
-    realUserDiary: '',
     memorySummarizeEveryN: 20,
     memoryEnabled: true,
     proactiveEnabled: false,

@@ -60,9 +60,13 @@ export interface ChatSession {
   title: string
   wallpaper: string
   bubbleStyle: string
-  realUserDiary: string
+
+  /** 每 N 条消息自动生成一次摘要，用户可在会话内自定义 */
   memorySummarizeEveryN: number
+
+  /** 当前会话是否启用记忆系统 */
   memoryEnabled: boolean
+
   proactiveEnabled: boolean
   proactiveFrequencyMinutes: number
   proactiveNotify: boolean
@@ -76,7 +80,6 @@ export interface ChatSession {
   lastMessageAt: number
   createdAt: number
 }
-
 
 /** 全局表情包库 */
 export interface StickerPack {
@@ -125,13 +128,115 @@ export interface CardLibrary {
 /** 记忆条目 */
 export interface MemoryEntry {
   id: string
+
+  /**
+   * 关联角色。
+   * Chat 会话记忆一般有 characterId。
+   * 全局提示词、全局记忆可以为空字符串。
+   */
   characterId: string
+
+  /**
+   * 关联会话。
+   * 每个聊天框/会话都有自己的记忆系统。
+   * 全局提示词、全局记忆可以为空字符串。
+   */
   sessionId: string
-  type: 'summary' | 'event' | 'diary' | 'custom'
+
+  /**
+   * 记忆类型：
+   * summary = 每 N 条消息自动生成的会话摘要
+   * event = 重要事件
+   * diary = 真实 user 日记，多条独立保存，不覆盖
+   * custom = 用户手动添加的普通记忆
+   * permanent = 永久记忆
+   * worldbook = 世界书条目
+   * globalPrompt = 全局提示词 text 输入框内容
+   */
+  type:
+    | 'summary'
+    | 'event'
+    | 'diary'
+    | 'custom'
+    | 'permanent'
+    | 'worldbook'
+    | 'globalPrompt'
+
+  /**
+   * 标题，方便 memory app 展示。
+   * 例如：
+   * “7月28日日记”
+   * “最近聊天摘要”
+   * “全局提示词”
+   */
+  title: string
+
+  /** 正文内容 */
   content: string
+
+  /**
+   * daily = 日常模式相关
+   * roleplay = RP 模式相关
+   * global = 全局
+   */
+  scope: 'daily' | 'roleplay' | 'global'
+
+  /**
+   * 是否真实 user 相关。
+   * 真实 user 日记必须为 true。
+   */
+  isRealUserRelated: boolean
+
+  /**
+   * 是否永久记忆。
+   * 也可以和 type: 'permanent' 搭配使用。
+   */
   isPermanent: boolean
+
+  /**
+   * 是否启用。
+   * memory app 可以用它来临时禁用某条记忆。
+   */
+  enabled: boolean
+
+  /**
+   * 重要程度，建议 0-100。
+   */
   importance: number
+
+  /**
+   * 标签。
+   * 真实 user 日记建议包含：
+   * ['real-user', 'diary']
+   */
   tags: string[]
+
+  /**
+   * 世界书触发词。
+   * 仅 type = 'worldbook' 时主要使用。
+   */
+  keywords: string[]
+
+  /**
+   * 世界书/全局提示词/永久记忆注入 prompt 时的优先级。
+   * 数字越大越优先。
+   */
+  priority: number
+
+  /**
+   * AI 生成的日记可以先标记为 draft。
+   * 用户确认或编辑后改为 saved。
+   */
+  status: 'saved' | 'draft' | 'archived'
+
+  /**
+   * 来源：
+   * user = 用户手动写入
+   * ai = AI 自动总结/日记
+   * system = 系统生成或全局设置
+   */
+  source: 'user' | 'ai' | 'system'
+
   createdAt: number
   updatedAt: number
 }
@@ -220,22 +325,42 @@ export class WhisperboxDB extends Dexie {
   constructor() {
     super('whisperbox')
 
-    this.version(3).stores({
-      characters: 'id, name, createdAt',
-      personas: 'id, name, isDefault, isRealUser',
-      messages: 'id, sessionId, timestamp, role',
-      chatSessions: 'id, characterId, personaId, mode, lastMessageAt, createdAt',
-      whisperCards: 'id, libraryId, *triggerWords',
-      cardLibraries: 'id, name, *boundCharacterIds',
-      memoryEntries: 'id, characterId, sessionId, type, importance, createdAt, isPermanent',
-      worldBookEntries: 'id, worldBookId, *key, isEnabled',
-      worldBooks: 'id, characterId',
-      todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
-      noteEntries: 'id, owner, exposeToMemory, updatedAt',
-      appSettings: 'id',
-      stickerPacks: 'id, name, isEnabled, createdAt',
-      stickerItems: 'id, packId, name, *triggerWords, createdAt'
-    })
+    this.version(4)
+      .stores({
+        characters: 'id, name, createdAt',
+        personas: 'id, name, isDefault, isRealUser',
+        messages: 'id, sessionId, timestamp, role',
+        chatSessions: 'id, characterId, personaId, mode, lastMessageAt, createdAt',
+        whisperCards: 'id, libraryId, *triggerWords',
+        cardLibraries: 'id, name, *boundCharacterIds',
+        memoryEntries:
+          'id, characterId, sessionId, type, scope, importance, createdAt, updatedAt, isPermanent, enabled, status, source, *tags, *keywords',
+        worldBookEntries: 'id, worldBookId, *key, isEnabled',
+        worldBooks: 'id, characterId',
+        todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
+        noteEntries: 'id, owner, exposeToMemory, updatedAt',
+        appSettings: 'id',
+        stickerPacks: 'id, name, isEnabled, createdAt',
+        stickerItems: 'id, packId, name, *triggerWords, createdAt'
+      })
+      .upgrade(async tx => {
+        await tx.table('chatSessions').toCollection().modify((session: any) => {
+          delete session.realUserDiary
+        })
+
+        await tx.table('memoryEntries').toCollection().modify((memory: any) => {
+          memory.title ??= ''
+          memory.scope ??= 'daily'
+          memory.isRealUserRelated ??= memory.type === 'diary'
+          memory.enabled ??= true
+          memory.tags ??= []
+          memory.keywords ??= []
+          memory.priority ??= 0
+          memory.status ??= 'saved'
+          memory.source ??= 'user'
+          memory.updatedAt ??= memory.createdAt ?? Date.now()
+        })
+      })
   }
 }
 
