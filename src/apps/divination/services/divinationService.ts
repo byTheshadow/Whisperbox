@@ -5,7 +5,8 @@ import type {
   Spread, 
   DivinationCard, 
   DrawnCard, 
-  DivinationReading 
+  DivinationReading,
+  DeckType
 } from '../types'
 
 /** 获取所有可用牌组 */
@@ -20,6 +21,21 @@ export function getAvailableSpreads(): Spread[] {
   return []
 }
 
+/**
+ * 根据牌组类型筛选适用的牌阵。
+ * - 如果 spread.supportedDeckTypes 为空或未设置，视为通用牌阵，所有牌组都可用
+ * - 否则仅当 deckType 在 supportedDeckTypes 中时返回
+ */
+export function getSpreadsForDeckType(deckType: DeckType): Spread[] {
+  const all = getAvailableSpreads()
+  return all.filter(spread => {
+    if (!spread.supportedDeckTypes || spread.supportedDeckTypes.length === 0) {
+      return true
+    }
+    return spread.supportedDeckTypes.includes(deckType)
+  })
+}
+
 /** 根据 ID 获取牌组 */
 export function getDeckById(deckId: string): Deck | null {
   const decks = getAvailableDecks()
@@ -32,7 +48,7 @@ export function getSpreadById(spreadId: string): Spread | null {
   return spreads.find(s => s.id === spreadId) ?? null
 }
 
-/** 洗牌：返回打乱顺序的牌组副本 */
+/** 洗牌 */
 export function shuffleDeck(cards: DivinationCard[]): DivinationCard[] {
   const shuffled = [...cards]
   for (let i = shuffled.length - 1; i > 0; i--) {
@@ -55,11 +71,7 @@ export function drawCards(
     const position = spread.positions[i]
     const isReversed = deck.allowReversed ? Math.random() > 0.5 : false
 
-    result.push({
-      card,
-      position,
-      isReversed
-    })
+    result.push({ card, position, isReversed })
   }
 
   return result
@@ -82,3 +94,4 @@ export function createReading(
     createdAt: Date.now()
   }
 }
+

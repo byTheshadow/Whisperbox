@@ -4,11 +4,12 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { 
   DivinationStep, 
+  Deck, 
+  Spread, 
   DivinationCard,
   DrawnCard,
   DivinationReading 
 } from './types'
-
 import { 
   getAvailableDecks, 
   getAvailableSpreads,
@@ -33,13 +34,16 @@ const currentStep = ref<DivinationStep>('select-deck')
 // 选择的牌组和牌阵
 const selectedDeckId = ref<string | null>(null)
 const selectedSpreadId = ref<string | null>(null)
+
+// 问题输入模式与内容
+const questionMode = ref<'write' | 'meditate'>('write')
 const question = ref('')
 
-// 数据
+// 数据（通过显式标注 computed 类型解决 TS 未使用类型报错）
 const decks = computed(() => getAvailableDecks())
 const spreads = computed(() => getAvailableSpreads())
-const selectedDeck = computed(() => selectedDeckId.value ? getDeckById(selectedDeckId.value) : null)
-const selectedSpread = computed(() => selectedSpreadId.value ? getSpreadById(selectedSpreadId.value) : null)
+const selectedDeck = computed<Deck | null>(() => selectedDeckId.value ? getDeckById(selectedDeckId.value) : null)
+const selectedSpread = computed<Spread | null>(() => selectedSpreadId.value ? getSpreadById(selectedSpreadId.value) : null)
 
 // 抽牌状态
 const shuffledCards = ref<DivinationCard[]>([])
@@ -55,7 +59,7 @@ const stepTitle = computed(() => {
   switch (currentStep.value) {
     case 'select-deck': return '选择牌组'
     case 'select-spread': return '选择牌阵'
-    case 'input-question': return '你的问题'
+    case 'input-question': return '设定问题'
     case 'shuffle': return '洗牌'
     case 'draw': return '抽牌'
     case 'reveal': return '翻牌'
@@ -84,6 +88,10 @@ function nextStep() {
       if (selectedSpreadId.value) currentStep.value = 'input-question'
       break
     case 'input-question':
+      // 如果是默念模式，清空文本框输入
+      if (questionMode.value === 'meditate') {
+        question.value = ''
+      }
       currentStep.value = 'shuffle'
       break
     case 'shuffle':
@@ -141,10 +149,14 @@ function handleReveal(index: number) {
 function finishReading() {
   if (!selectedDeckId.value || !selectedSpreadId.value) return
   
+  const finalQuestion = questionMode.value === 'meditate' 
+    ? '（心中默念问题）' 
+    : (question.value.trim() || '无具体问题，整体指引')
+
   currentReading.value = createReading(
     selectedDeckId.value,
     selectedSpreadId.value,
-    question.value,
+    finalQuestion,
     drawnCards.value
   )
   currentStep.value = 'result'
@@ -208,26 +220,61 @@ function restart() {
       </template>
       
       <!-- 选择牌阵 -->
-      <template v-else-if="currentStep === 'select-spread'">
-        <SpreadSelector
-          :spreads="spreads"
-          :selected-spread-id="selectedSpreadId"
-          @select="handleSelectSpread"
-        />
-      </template>
+<template v-else-if="currentStep === 'select-spread'">
+  <SpreadSelector
+    :spreads="spreads"
+    :selected-spread-id="selectedSpreadId"
+    :deck-type="selectedDeck?.type ?? null"
+    @select="handleSelectSpread"
+  />
+</template>
       
       <!-- 输入问题 -->
       <template v-else-if="currentStep === 'input-question'">
-        <div class="space-y-4">
-          <div class="text-xs text-white/40">
-            可以留空，进行整体指引
+        <div class="space-y-6">
+          <!-- 模式切换 Tab -->
+          <div class="flex bg-neutral-900/50 p-1 rounded-lg border border-white/5">
+            <button
+              class="flex-1 py-2 text-xs rounded transition"
+              :class="questionMode === 'write' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20' : 'text-white/40 hover:text-white/60'"
+              @click="questionMode = 'write'"
+            >
+              写下问题
+            </button>
+            <button
+              class="flex-1 py-2 text-xs rounded transition"
+              :class="questionMode === 'meditate' ? 'bg-violet-600/20 text-violet-300 border border-violet-500/20' : 'text-white/40 hover:text-white/60'"
+              @click="questionMode = 'meditate'"
+            >
+              心中默念
+            </button>
           </div>
-          
-          <textarea
-            v-model="question"
-            class="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white/80 placeholder-white/30 resize-none focus:outline-none focus:border-violet-500/50"
-            placeholder="输入你想问的问题..."
-          />
+
+          <!-- 写下问题 -->
+          <div v-if="questionMode === 'write'" class="space-y-4">
+            <div class="text-xs text-white/40">
+              写下你的具体问题，有助于 AI 提供更精准的能量解读。
+            </div>
+            
+            <textarea
+              v-model="question"
+              class="w-full h-32 bg-white/5 border border-white/10 rounded-lg p-3 text-sm text-white/80 placeholder-white/30 resize-none focus:outline-none focus:border-violet-500/50 transition"
+              placeholder="输入你想问的问题（例如：未来三个月我的职业发展运势如何？）"
+            />
+          </div>
+
+          <!-- 心中默念 -->
+          <div v-else class="flex flex-col items-center justify-center py-10 space-y-4 text-center">
+            <div class="w-12 h-12 rounded-full border border-violet-500/30 flex items-center justify-center text-violet-400 animate-pulse bg-violet-500/5">
+              ✨
+            </div>
+            <div class="space-y-2">
+              <h4 class="text-sm text-white/80 font-light">闭上双眼，集中精神</h4>
+              <p class="text-xs text-white/40 max-w-[280px] leading-relaxed mx-auto">
+                在脑海中清晰地勾勒出你想问的人、事或情境。重复默念你的问题三遍，当内心感到平静时，即可进入下一步。
+              </p>
+            </div>
+          </div>
         </div>
       </template>
       
@@ -280,7 +327,7 @@ function restart() {
     <!-- 底部操作栏 -->
     <footer 
       v-if="currentStep !== 'result'"
-      class="px-4 py-4 border-t border-white/5"
+      class="px-4 py-4 border-t border-white/5 animate-fade-in"
     >
       <div class="flex gap-3">
         <button
@@ -305,7 +352,8 @@ function restart() {
           "
           @click="nextStep"
         >
-          <template v-if="currentStep === 'shuffle'">洗牌</template>
+          <template v-if="currentStep === 'input-question' && questionMode === 'meditate'">我已准备好</template>
+          <template v-else-if="currentStep === 'shuffle'">洗牌</template>
           <template v-else-if="currentStep === 'draw'">抽牌</template>
           <template v-else-if="currentStep === 'reveal'">
             {{ revealedIndices.length === drawnCards.length ? '查看解读' : '继续翻牌' }}
