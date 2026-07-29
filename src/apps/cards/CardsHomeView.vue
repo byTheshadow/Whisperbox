@@ -12,25 +12,34 @@
       <p class="text-xs text-white/40 mt-1">字卡 · 私语碎片</p>
     </header>
 
-    <!-- 功能区 -->
-    <div class="px-4 py-4 space-y-4">
-      <!-- 字卡库管理入口 -->
-      <button
-        class="w-full text-left px-4 py-3 rounded border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition"
-        @click="$router.push('/cards/library')"
-      >
-        <span class="text-sm text-white/80">字卡库管理</span>
-        <span class="text-xs text-white/30 ml-2">新建 · 导入 · 编辑</span>
-      </button>
+   <!-- 功能区 -->
+<div class="px-4 py-4 space-y-4">
+  <!-- 字卡库管理入口 -->
+  <button
+    class="w-full text-left px-4 py-3 rounded border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition"
+    @click="$router.push('/cards/library')"
+  >
+    <span class="text-sm text-white/80">字卡库管理</span>
+    <span class="text-xs text-white/30 ml-2">新建 · 导入 · 编辑</span>
+  </button>
 
-      <!-- 新建消息框 -->
-      <button
-        class="w-full text-left px-4 py-3 rounded border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition"
-        @click="showNewSession = true"
-      >
-        <span class="text-sm text-white/80">+ 新建消息框</span>
-      </button>
-    </div>
+  <!-- 字卡角色管理入口 -->
+  <button
+    class="w-full text-left px-4 py-3 rounded border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition"
+    @click="$router.push('/cards/characters')"
+  >
+    <span class="text-sm text-white/80">字卡角色管理</span>
+    <span class="text-xs text-white/30 ml-2">新建 · 编辑 · 删除</span>
+  </button>
+
+  <!-- 新建消息框 -->
+  <button
+    class="w-full text-left px-4 py-3 rounded border border-white/10 bg-white/5 backdrop-blur hover:bg-white/10 transition"
+    @click="showNewSession = true"
+  >
+    <span class="text-sm text-white/80">+ 新建消息框</span>
+  </button>
+</div>
 
     <!-- 消息框列表 -->
     <div class="px-4 space-y-3 pb-20">

@@ -122,10 +122,10 @@
 
     <!-- 角色编辑器 -->
     <CardCharacterEditor
-      v-if="showCharEditor"
-      @close="showCharEditor = false"
-      @created="onCharacterCreated"
-    />
+  v-if="showCharEditor"
+  @close="showCharEditor = false"
+  @saved="onCharacterSaved"
+/>
   </div>
 </template>
 
@@ -220,12 +220,18 @@ async function handleCreate() {
   emit('created')
 }
 
-async function onCharacterCreated() {
+async function onCharacterSaved(character?: CardCharacter) {
   showCharEditor.value = false
   characters.value = await getAllCardCharacters()
+
+  if (character?.id) {
+    form.value.cardCharacterId = character.id
+    return
+  }
 
   if (!form.value.cardCharacterId && characters.value.length > 0) {
     form.value.cardCharacterId = characters.value[0].id
   }
 }
+
 </script>

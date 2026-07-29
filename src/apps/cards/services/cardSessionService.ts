@@ -13,25 +13,34 @@ export async function createCardCharacter(data: {
   personality: string
   statusTexts?: string[]
 }): Promise<CardCharacter> {
+  const now = Date.now()
+
   const character: CardCharacter = {
     id: genId(),
     name: data.name,
     avatar: data.avatar,
     personality: data.personality,
-    statusTexts: data.statusTexts || ['在线', '离开', '发呆中', '思考中', '沉默'],
-    createdAt: Date.now(),
-    updatedAt: Date.now()
+    statusTexts: [...(data.statusTexts || ['在线', '离开', '发呆中', '思考中', '沉默'])],
+    createdAt: now,
+    updatedAt: now
   }
+
   await db.cardCharacters.put(character)
   return character
 }
+
 
 export async function updateCardCharacter(
   id: string,
   data: Partial<Pick<CardCharacter, 'name' | 'avatar' | 'personality' | 'statusTexts'>>
 ): Promise<void> {
-  await db.cardCharacters.update(id, { ...data, updatedAt: Date.now() })
+  await db.cardCharacters.update(id, {
+    ...data,
+    statusTexts: data.statusTexts ? [...data.statusTexts] : data.statusTexts,
+    updatedAt: Date.now()
+  })
 }
+
 
 export async function deleteCardCharacter(id: string): Promise<void> {
   const sessions = await db.cardSessions.where('cardCharacterId').equals(id).toArray()
