@@ -4,31 +4,52 @@
     :style="wallpaperStyle"
   >
     <!-- 顶部栏 -->
-    <header class="px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-md flex items-center gap-3 relative z-10">
-      <button class="text-white/40 text-sm" @click="$router.push('/cards')">&larr;</button>
+    <header
+      class="px-4 py-3 border-b border-white/10 bg-black/60 backdrop-blur-md flex items-center gap-3 relative z-10"
+    >
+      <button class="text-white/40 text-sm" @click="router.push('/cards')">
+        &larr;
+      </button>
+
       <div class="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex-shrink-0">
-        <img v-if="character?.avatar" :src="character.avatar" class="w-full h-full object-cover" alt="" />
+        <img
+          v-if="character?.avatar"
+          :src="character.avatar"
+          class="w-full h-full object-cover"
+          alt=""
+        />
       </div>
+
       <div class="flex-1 min-w-0">
-        <p class="text-sm text-white/90 truncate">{{ character?.name || session?.title }}</p>
+        <p class="text-sm text-white/90 truncate">
+          {{ character?.name || session?.title }}
+        </p>
         <p class="text-xs text-white/40">
           <span v-if="replyState === 'thinking'">{{ typingText }}</span>
           <span v-else>{{ characterStatus }}</span>
         </p>
       </div>
 
-      <!-- 专注按钮 -->
       <button
         class="text-white/40 text-xs border border-white/10 px-2 py-1 rounded hover:bg-white/10 transition"
         @click="showFocus = true"
       >
         专注
       </button>
-      <button class="text-white/40 text-xs" @click="showSettings = true">设置</button>
+
+      <button
+        class="text-white/40 text-xs"
+        @click="showSettings = true"
+      >
+        设置
+      </button>
     </header>
 
     <!-- 消息列表 -->
-    <div ref="msgContainer" class="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+    <div
+      ref="msgContainer"
+      class="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+    >
       <div
         v-for="msg in messages"
         :key="msg.id"
@@ -40,7 +61,12 @@
           v-if="msg.role === 'card'"
           class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1"
         >
-          <img v-if="character?.avatar" :src="character.avatar" class="w-full h-full object-cover" alt="" />
+          <img
+            v-if="character?.avatar"
+            :src="character.avatar"
+            class="w-full h-full object-cover"
+            alt=""
+          />
         </div>
 
         <div
@@ -50,8 +76,16 @@
         >
           <!-- 媒体消息 -->
           <div v-if="msg.media">
-            <div v-if="msg.media.type === 'image'" class="rounded overflow-hidden">
-              <img v-if="msg.media.url" :src="msg.media.url" class="max-w-full" alt="" />
+            <div
+              v-if="msg.media.type === 'image'"
+              class="rounded overflow-hidden"
+            >
+              <img
+                v-if="msg.media.url"
+                :src="msg.media.url"
+                class="max-w-full"
+                alt=""
+              />
               <div
                 v-else
                 class="w-48 h-32 bg-white/10 flex items-center justify-center text-xs text-white/30 rounded"
@@ -60,14 +94,26 @@
               </div>
             </div>
 
-            <div v-else-if="msg.media.type === 'voice'" class="flex items-center gap-2">
+            <div
+              v-else-if="msg.media.type === 'voice'"
+              class="flex items-center gap-2"
+            >
               <span class="text-white/40">&#9654;</span>
-              <span class="text-xs text-white/50">{{ msg.media.description || '语音消息' }}</span>
+              <span class="text-xs text-white/50">
+                {{ msg.media.description || '语音消息' }}
+              </span>
             </div>
 
             <div v-else-if="msg.media.type === 'sticker'">
-              <img v-if="msg.media.url" :src="msg.media.url" class="w-24 h-24 object-contain" alt="" />
-              <span v-else class="text-xs text-white/40">{{ msg.media.name || '表情包' }}</span>
+              <img
+                v-if="msg.media.url"
+                :src="msg.media.url"
+                class="w-24 h-24 object-contain"
+                alt=""
+              />
+              <span v-else class="text-xs text-white/40">
+                {{ msg.media.name || '表情包' }}
+              </span>
             </div>
           </div>
 
@@ -75,20 +121,33 @@
           <p v-if="msg.content">{{ msg.content }}</p>
         </div>
 
-        <!-- user 头像 -->
+        <!-- User 头像 -->
         <div
           v-if="msg.role === 'user'"
           class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 ml-2 mt-1"
         >
-          <img v-if="personaAvatar" :src="personaAvatar" class="w-full h-full object-cover" alt="" />
+          <img
+            v-if="personaAvatar"
+            :src="personaAvatar"
+            class="w-full h-full object-cover"
+            alt=""
+          />
         </div>
       </div>
 
       <!-- 打字指示器 -->
       <div v-if="replyState === 'thinking'" class="flex justify-start">
-        <div class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1">
-          <img v-if="character?.avatar" :src="character.avatar" class="w-full h-full object-cover" alt="" />
+        <div
+          class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1"
+        >
+          <img
+            v-if="character?.avatar"
+            :src="character.avatar"
+            class="w-full h-full object-cover"
+            alt=""
+          />
         </div>
+
         <div class="rounded-2xl px-3 py-2 bg-neutral-800 text-white/40 text-sm">
           <span class="typing-indicator">{{ typingText }}</span>
         </div>
@@ -96,16 +155,33 @@
     </div>
 
     <!-- 底部输入区 -->
-    <div class="border-t border-white/10 bg-black/60 backdrop-blur-md px-4 py-3 relative z-10">
-      <!-- 媒体快捷按钮 -->
+    <div
+      class="border-t border-white/10 bg-black/60 backdrop-blur-md px-4 py-3 relative z-10"
+    >
       <div class="flex items-center gap-3 mb-2">
-        <button class="text-xs text-white/30 hover:text-white/60" @click="openImageInput">图片</button>
-        <button class="text-xs text-white/30 hover:text-white/60" @click="openVoiceInput">语音</button>
-        <button class="text-xs text-white/30 hover:text-white/60" @click="showStickerPicker = !showStickerPicker">表情</button>
+        <button
+          class="text-xs text-white/30 hover:text-white/60"
+          @click="openImageInput"
+        >
+          图片
+        </button>
+
+        <button
+          class="text-xs text-white/30 hover:text-white/60"
+          @click="openVoiceInput"
+        >
+          语音
+        </button>
+
+        <button
+          class="text-xs text-white/30 hover:text-white/60"
+          @click="showStickerPicker = !showStickerPicker"
+        >
+          表情
+        </button>
 
         <div class="flex-1" />
 
-        <!-- 触发角色回复按钮 -->
         <button
           class="text-xs border px-3 py-1 rounded transition"
           :class="replyState === 'idle'
@@ -127,6 +203,7 @@
           placeholder="输入消息..."
           @keydown.enter.exact.prevent="sendText"
         />
+
         <button
           class="text-xs text-white/80 border border-white/20 px-3 py-2 rounded-lg hover:bg-white/10 transition"
           @click="sendText"
@@ -143,14 +220,18 @@
             class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
             @click.self="closeImageInput"
           >
-            <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+            <div
+              class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4"
+            >
               <h4 class="text-sm text-white/80">描述这张图片</h4>
+
               <textarea
                 v-model="mediaDescription"
                 class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
                 placeholder="描述你想发送的图片内容…"
                 rows="3"
               />
+
               <div class="flex justify-end gap-3">
                 <button
                   class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
@@ -159,6 +240,7 @@
                 >
                   取消
                 </button>
+
                 <button
                   class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
                   type="button"
@@ -181,14 +263,18 @@
             class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
             @click.self="closeVoiceInput"
           >
-            <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+            <div
+              class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4"
+            >
               <h4 class="text-sm text-white/80">描述这条语音</h4>
+
               <textarea
                 v-model="mediaDescription"
                 class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
                 placeholder="描述语音内容…"
                 rows="3"
               />
+
               <div class="flex justify-end gap-3">
                 <button
                   class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
@@ -197,6 +283,7 @@
                 >
                   取消
                 </button>
+
                 <button
                   class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
                   type="button"
@@ -211,7 +298,7 @@
         </Transition>
       </Teleport>
 
-      <!-- 表情包选择器 -->
+      <!-- 表情选择器 -->
       <div
         v-if="showStickerPicker"
         class="absolute bottom-full left-0 right-0 bg-neutral-900 border-t border-white/10 p-3 max-h-48 overflow-y-auto"
@@ -223,10 +310,20 @@
             class="cursor-pointer hover:bg-white/10 rounded p-1"
             @click="sendSticker(sticker)"
           >
-            <img :src="sticker.url" class="w-12 h-12 object-contain mx-auto" alt="" />
+            <img
+              :src="sticker.url"
+              class="w-12 h-12 object-contain mx-auto"
+              alt=""
+            />
           </div>
         </div>
-        <p v-if="stickers.length === 0" class="text-xs text-white/20 text-center">暂无表情包</p>
+
+        <p
+          v-if="stickers.length === 0"
+          class="text-xs text-white/20 text-center"
+        >
+          暂无表情包
+        </p>
       </div>
     </div>
 
@@ -236,7 +333,9 @@
       class="fixed inset-0 z-40 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
       @click.self="showSettings = false"
     >
-      <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+      <div
+        class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto"
+      >
         <h2 class="text-sm text-white/80">消息框设置</h2>
 
         <!-- 主动投递 -->
@@ -258,10 +357,10 @@
               />
               <div
                 class="w-10 h-5 bg-white/10 rounded-full peer peer-checked:bg-white/70 transition"
-              ></div>
+              />
               <div
                 class="absolute left-0.5 top-0.5 w-4 h-4 bg-neutral-500 rounded-full transition peer-checked:translate-x-5 peer-checked:bg-black"
-              ></div>
+              />
             </label>
           </div>
 
@@ -276,23 +375,40 @@
         <!-- 打字指示器文字 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">打字指示器文字</label>
+
           <input
             :value="session?.typingIndicatorText || '正在输入...'"
             class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
             placeholder="正在输入..."
             @change="updateTypingText(($event.target as HTMLInputElement).value)"
           />
-          <p class="text-xs text-white/20">角色选卡时显示的文字</p>
+
+          <p class="text-xs text-white/20">
+            角色选卡时显示的文字
+          </p>
         </div>
 
         <!-- 壁纸 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">壁纸</label>
-          <label class="block text-xs text-white/40 border border-white/20 px-3 py-1.5 rounded cursor-pointer hover:bg-white/10 transition w-fit">
+
+          <label
+            class="block text-xs text-white/40 border border-white/20 px-3 py-1.5 rounded cursor-pointer hover:bg-white/10 transition w-fit"
+          >
             选择图片
-            <input type="file" accept="image/*" class="hidden" @change="onWallpaperChange" />
+            <input
+              type="file"
+              accept="image/*"
+              class="hidden"
+              @change="onWallpaperChange"
+            />
           </label>
-          <button v-if="session?.wallpaper" class="text-xs text-red-400/60" @click="clearWallpaper">
+
+          <button
+            v-if="session?.wallpaper"
+            class="text-xs text-red-400/60"
+            @click="clearWallpaper"
+          >
             清除壁纸
           </button>
         </div>
@@ -300,6 +416,7 @@
         <!-- 气泡样式 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">气泡样式</label>
+
           <select
             :value="session?.bubbleStyle || 'classic'"
             class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
@@ -313,8 +430,12 @@
         </div>
 
         <!-- 自定义 CSS -->
-        <div v-if="session?.bubbleStyle === 'custom'" class="space-y-2">
+        <div
+          v-if="session?.bubbleStyle === 'custom'"
+          class="space-y-2"
+        >
           <label class="text-xs text-white/40">自定义气泡 CSS</label>
+
           <textarea
             :value="session?.bubbleCustomCss"
             class="w-full bg-black border border-white/20 rounded px-3 py-2 text-xs text-white/80 h-24 resize-none font-mono"
@@ -326,8 +447,11 @@
         <!-- 回复模式 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">回复模式</label>
+
           <div class="flex gap-3">
-            <label class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer">
+            <label
+              class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer"
+            >
               <input
                 type="radio"
                 :checked="session?.replyMode === 'random'"
@@ -336,7 +460,10 @@
               />
               纯随机
             </label>
-            <label class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer">
+
+            <label
+              class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer"
+            >
               <input
                 type="radio"
                 :checked="session?.replyMode === 'keyword'"
@@ -351,7 +478,11 @@
         <!-- 回复延迟 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">回复延迟区间（分钟）</label>
-          <p class="text-xs text-white/20">角色在此区间内随机选一个时间点回复</p>
+
+          <p class="text-xs text-white/20">
+            角色在此区间内随机选一个时间点回复
+          </p>
+
           <div class="flex items-center gap-2">
             <input
               :value="session?.replyDelayMin ?? 0"
@@ -360,7 +491,9 @@
               class="w-16 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white/80 text-center"
               @change="updateDelay('min', +($event.target as HTMLInputElement).value)"
             />
+
             <span class="text-white/30 text-xs">~</span>
+
             <input
               :value="session?.replyDelayMax ?? 20"
               type="number"
@@ -369,7 +502,24 @@
               @change="updateDelay('max', +($event.target as HTMLInputElement).value)"
             />
           </div>
-          <p class="text-xs text-white/20">超过最大时间，系统兜底随机抽两张字卡回复</p>
+
+          <p class="text-xs text-white/20">
+            超过最大时间，系统兜底随机抽两张字卡回复。
+          </p>
+        </div>
+
+        <!-- 删除消息框 -->
+        <div class="pt-2 border-t border-white/10">
+          <p class="text-xs text-white/25 mb-2">
+            删除后，其中所有消息也会被一并移除。
+          </p>
+
+          <button
+            class="w-full text-xs text-red-300/80 border border-red-400/20 px-3 py-2 rounded hover:bg-red-500/10 transition"
+            @click="showDeleteConfirm = true"
+          >
+            删除消息框
+          </button>
         </div>
 
         <button
@@ -378,6 +528,44 @@
         >
           关闭
         </button>
+      </div>
+    </div>
+
+    <!-- 删除消息框确认 -->
+    <div
+      v-if="showDeleteConfirm"
+      class="fixed inset-0 z-50 bg-black/80 backdrop-blur flex items-center justify-center p-4"
+      @click.self="showDeleteConfirm = false"
+    >
+      <div
+        class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4"
+      >
+        <h2 class="text-sm text-white/80 font-light">
+          删除消息框？
+        </h2>
+
+        <div class="text-xs text-white/40 leading-5 space-y-2">
+          <p>
+            将删除「{{ session?.title || '此消息框' }}」及其中所有消息。
+          </p>
+          <p>此操作无法撤销。</p>
+        </div>
+
+        <div class="flex justify-end gap-3 pt-2">
+          <button
+            class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded hover:bg-white/5 transition"
+            @click="showDeleteConfirm = false"
+          >
+            取消
+          </button>
+
+          <button
+            class="text-xs text-red-300/80 px-3 py-1.5 border border-red-400/20 rounded hover:bg-red-500/10 transition"
+            @click="confirmDeleteSession"
+          >
+            删除
+          </button>
+        </div>
       </div>
     </div>
 
@@ -393,8 +581,13 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
-import { useRoute } from 'vue-router'
-import type { CardSession, CardCharacter, CardMessage, StickerItem } from '@/core/db'
+import { useRoute, useRouter } from 'vue-router'
+import type {
+  CardSession,
+  CardCharacter,
+  CardMessage,
+  StickerItem
+} from '@/core/db'
 import { db } from '@/core/db'
 import {
   getCardSession,
@@ -402,7 +595,8 @@ import {
   getMessages,
   sendUserMessage,
   sendCardReply,
-  updateCardSession
+  updateCardSession,
+  deleteCardSession
 } from './services/cardSessionService'
 import { drawRandomCards, drawByKeyword } from './services/cardReplyService'
 import {
@@ -412,6 +606,7 @@ import {
 import FocusMode from './components/FocusMode.vue'
 
 const route = useRoute()
+const router = useRouter()
 const sessionId = route.params.sessionId as string
 
 const session = ref<CardSession | null>(null)
@@ -424,6 +619,7 @@ const inputText = ref('')
 const showStickerPicker = ref(false)
 const showSettings = ref(false)
 const showFocus = ref(false)
+const showDeleteConfirm = ref(false)
 
 const showImageInput = ref(false)
 const showVoiceInput = ref(false)
@@ -432,23 +628,24 @@ const mediaDescription = ref('')
 const stickers = ref<StickerItem[]>([])
 const msgContainer = ref<HTMLElement | null>(null)
 
-// 回复状态
 const replyState = ref<'idle' | 'thinking'>('idle')
 
-// 打字指示器文字
-const typingText = computed(() => session.value?.typingIndicatorText || '正在输入...')
+const typingText = computed(() => {
+  return session.value?.typingIndicatorText || '正在输入...'
+})
 
 const hasBoundLibraries = computed(() => {
-  return Array.isArray(session.value?.libraryIds) && session.value.libraryIds.length > 0
+  return Array.isArray(session.value?.libraryIds)
+    && session.value.libraryIds.length > 0
 })
 
 let replyTimer: ReturnType<typeof setTimeout> | null = null
 let deadlineTimer: ReturnType<typeof setTimeout> | null = null
 let proactiveTimer: ReturnType<typeof setInterval> | null = null
 
-// 壁纸样式
 const wallpaperStyle = computed(() => {
   if (!session.value?.wallpaper) return {}
+
   return {
     backgroundImage: `url(${session.value.wallpaper})`,
     backgroundSize: 'cover',
@@ -456,20 +653,27 @@ const wallpaperStyle = computed(() => {
   }
 })
 
-// 气泡样式
 const userBubbleClass = computed(() => {
   const style = session.value?.bubbleStyle || 'classic'
+
   if (style === 'minimal') return 'bg-white/10 text-white/90'
-  if (style === 'glass') return 'bg-white/10 backdrop-blur-md text-white/90 border border-white/10'
+  if (style === 'glass') {
+    return 'bg-white/10 backdrop-blur-md text-white/90 border border-white/10'
+  }
   if (style === 'custom') return ''
+
   return 'bg-blue-600/80 text-white'
 })
 
 const cardBubbleClass = computed(() => {
   const style = session.value?.bubbleStyle || 'classic'
+
   if (style === 'minimal') return 'bg-white/5 text-white/80'
-  if (style === 'glass') return 'bg-white/5 backdrop-blur-md text-white/80 border border-white/10'
+  if (style === 'glass') {
+    return 'bg-white/5 backdrop-blur-md text-white/80 border border-white/10'
+  }
   if (style === 'custom') return ''
+
   return 'bg-neutral-800 text-white/90'
 })
 
@@ -479,13 +683,17 @@ function parseCssString(css: string): Record<string, string> {
   try {
     css.split(';').forEach(rule => {
       const [key, val] = rule.split(':').map(s => s.trim())
+
       if (key && val) {
-        const camelKey = key.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
+        const camelKey = key.replace(/-([a-z])/g, (_, char: string) => {
+          return char.toUpperCase()
+        })
+
         styles[camelKey] = val
       }
     })
   } catch {
-    // ignore invalid css string
+    // 忽略无效 CSS
   }
 
   return styles
@@ -505,22 +713,26 @@ onMounted(async () => {
   session.value = (await getCardSession(sessionId)) || null
 
   if (session.value) {
-    character.value = (await getCardCharacter(session.value.cardCharacterId)) || null
+    character.value =
+      (await getCardCharacter(session.value.cardCharacterId)) || null
+
     const persona = await db.personas.get(session.value.personaId)
     personaAvatar.value = persona?.avatar || ''
   }
 
   if (character.value && character.value.statusTexts.length > 0) {
-    const idx = Math.floor(Math.random() * character.value.statusTexts.length)
-    characterStatus.value = character.value.statusTexts[idx]
+    const index = Math.floor(
+      Math.random() * character.value.statusTexts.length
+    )
+    characterStatus.value = character.value.statusTexts[index]
   }
 
   messages.value = await getMessages(sessionId)
 
-  // 加载表情包
   const packs = await db.stickerPacks.where('isEnabled').equals(1).toArray()
+
   if (packs.length > 0) {
-    const packIds = packs.map(p => p.id)
+    const packIds = packs.map(pack => pack.id)
     stickers.value = await db.stickerItems.where('packId').anyOf(packIds).toArray()
   }
 
@@ -530,7 +742,6 @@ onMounted(async () => {
   }
 
   startProactivePolling()
-
   scrollToBottom()
 })
 
@@ -583,11 +794,12 @@ async function sendText() {
   const text = inputText.value.trim()
   if (!text) return
 
-  // 支持分段多气泡：换行分隔
-  const segments = text.split('\n').filter(s => s.trim())
+  const segments = text.split('\n').filter(segment => segment.trim())
 
-  for (const seg of segments) {
-    await sendUserMessage(sessionId, { content: seg.trim() })
+  for (const segment of segments) {
+    await sendUserMessage(sessionId, {
+      content: segment.trim()
+    })
   }
 
   inputText.value = ''
@@ -596,14 +808,14 @@ async function sendText() {
 }
 
 async function sendImage() {
-  const desc = mediaDescription.value.trim()
-  if (!desc) return
+  const description = mediaDescription.value.trim()
+  if (!description) return
 
   await sendUserMessage(sessionId, {
     content: '',
     media: {
       type: 'image',
-      description: desc,
+      description,
       url: ''
     }
   })
@@ -614,14 +826,14 @@ async function sendImage() {
 }
 
 async function sendVoice() {
-  const desc = mediaDescription.value.trim()
-  if (!desc) return
+  const description = mediaDescription.value.trim()
+  if (!description) return
 
   await sendUserMessage(sessionId, {
     content: '',
     media: {
       type: 'voice',
-      description: desc,
+      description,
       url: ''
     }
   })
@@ -658,28 +870,24 @@ function triggerReply() {
   const minDelay = (session.value.replyDelayMin ?? 0) * 60 * 1000
   const maxDelay = (session.value.replyDelayMax ?? 20) * 60 * 1000
 
-  // 角色正常回复时间点：min ~ max 之间随机
   const normalDelay = minDelay + Math.random() * (maxDelay - minDelay)
 
-  // 正常回复计时器
   replyTimer = setTimeout(async () => {
     await doNormalReply()
   }, normalDelay)
 
-  // 最晚兜底计时器
   deadlineTimer = setTimeout(async () => {
-    if (replyState.value === 'thinking') {
-      if (replyTimer) {
-        clearTimeout(replyTimer)
-        replyTimer = null
-      }
+    if (replyState.value !== 'thinking') return
 
-      await doFallbackReply()
+    if (replyTimer) {
+      clearTimeout(replyTimer)
+      replyTimer = null
     }
+
+    await doFallbackReply()
   }, maxDelay)
 }
 
-/** 角色正常回复 */
 async function doNormalReply() {
   if (replyState.value !== 'thinking' || !session.value) return
 
@@ -688,19 +896,21 @@ async function doNormalReply() {
     deadlineTimer = null
   }
 
-  const recentUserMsgs = messages.value
-    .filter(m => m.role === 'user')
+  const recentUserMessages = messages.value
+    .filter(message => message.role === 'user')
     .slice(-5)
-    .map(m => m.content)
+    .map(message => message.content)
     .join(' ')
 
   let card = null
 
-  if (session.value.replyMode === 'keyword' && recentUserMsgs.trim()) {
-    card = await drawByKeyword(recentUserMsgs, session.value.libraryIds)
+  if (session.value.replyMode === 'keyword' && recentUserMessages.trim()) {
+    card = await drawByKeyword(
+      recentUserMessages,
+      session.value.libraryIds
+    )
   }
 
-  // 关键词没匹配到，fallback 随机抽一张
   if (!card) {
     const cards = await drawRandomCards(session.value.libraryIds, 1)
     card = cards[0] || null
@@ -717,7 +927,6 @@ async function doNormalReply() {
   scrollToBottom()
 }
 
-/** 兜底回复：系统直接随机抽两张 */
 async function doFallbackReply() {
   if (!session.value) return
 
@@ -789,19 +998,25 @@ function startProactivePolling() {
   }, 30 * 1000)
 }
 
-async function updateTypingText(val: string) {
-  await updateCardSession(sessionId, { typingIndicatorText: val || '正在输入...' })
+async function updateTypingText(value: string) {
+  await updateCardSession(sessionId, {
+    typingIndicatorText: value || '正在输入...'
+  })
+
   session.value = (await getCardSession(sessionId)) || null
 }
 
-async function onWallpaperChange(e: Event) {
-  const file = (e.target as HTMLInputElement).files?.[0]
+async function onWallpaperChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0]
   if (!file) return
 
   const reader = new FileReader()
 
   reader.onload = async () => {
-    await updateCardSession(sessionId, { wallpaper: reader.result as string })
+    await updateCardSession(sessionId, {
+      wallpaper: reader.result as string
+    })
+
     session.value = (await getCardSession(sessionId)) || null
   }
 
@@ -813,13 +1028,13 @@ async function clearWallpaper() {
   session.value = (await getCardSession(sessionId)) || null
 }
 
-async function updateBubbleStyle(val: string) {
-  await updateCardSession(sessionId, { bubbleStyle: val })
+async function updateBubbleStyle(value: string) {
+  await updateCardSession(sessionId, { bubbleStyle: value })
   session.value = (await getCardSession(sessionId)) || null
 }
 
-async function updateCustomCss(val: string) {
-  await updateCardSession(sessionId, { bubbleCustomCss: val })
+async function updateCustomCss(value: string) {
+  await updateCardSession(sessionId, { bubbleCustomCss: value })
   session.value = (await getCardSession(sessionId)) || null
 }
 
@@ -828,14 +1043,35 @@ async function updateReplyMode(mode: 'random' | 'keyword') {
   session.value = (await getCardSession(sessionId)) || null
 }
 
-async function updateDelay(which: 'min' | 'max', val: number) {
+async function updateDelay(which: 'min' | 'max', value: number) {
+  const safeValue = Math.max(0, Number(value) || 0)
+
   if (which === 'min') {
-    await updateCardSession(sessionId, { replyDelayMin: val })
+    await updateCardSession(sessionId, {
+      replyDelayMin: safeValue
+    })
   } else {
-    await updateCardSession(sessionId, { replyDelayMax: val })
+    await updateCardSession(sessionId, {
+      replyDelayMax: safeValue
+    })
   }
 
   session.value = (await getCardSession(sessionId)) || null
+}
+
+// ========== 删除消息框 ==========
+
+async function confirmDeleteSession() {
+  if (!session.value) return
+
+  clearTimers()
+
+  await deleteCardSession(session.value.id)
+
+  showDeleteConfirm.value = false
+  showSettings.value = false
+
+  await router.push('/cards')
 }
 
 // ========== 工具 ==========
