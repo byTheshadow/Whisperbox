@@ -36,18 +36,53 @@
         <p class="text-xs text-white/30">共 {{ cardCounts[lib.id] || 0 }} 条字卡</p>
 
         <!-- 展开的字卡列表 -->
-        <div v-if="expanded === lib.id" class="space-y-2 pt-2 border-t border-white/5">
-          <div
-            v-for="card in libraryCards"
-            :key="card.id"
-            class="flex items-start gap-2 group"
-          >
-            <p class="flex-1 text-xs text-white/60 leading-relaxed">{{ card.content }}</p>
-            <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition flex-shrink-0">
-              <button class="text-xs text-white/30 hover:text-white/60" @click="startEditCard(card)">编辑</button>
-              <button class="text-xs text-red-400/40 hover:text-red-400" @click="handleDeleteCard(card.id)">删</button>
-            </div>
-          </div>
+       <div
+  v-for="card in libraryCards"
+  :key="card.id"
+  class="rounded border border-white/5 bg-black/20 px-3 py-2 space-y-2"
+>
+  <div class="flex items-start gap-3">
+    <div class="flex-1 min-w-0">
+      <p class="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">
+        {{ card.content }}
+      </p>
+
+      <div class="mt-2 flex flex-wrap gap-1" v-if="card.triggerWords && card.triggerWords.length > 0">
+        <span
+          v-for="word in card.triggerWords"
+          :key="word"
+          class="text-[10px] text-white/40 border border-white/10 rounded px-1.5 py-0.5"
+        >
+          {{ word }}
+        </span>
+      </div>
+
+      <p v-else class="mt-2 text-[10px] text-white/20">
+        未设置关键词
+      </p>
+
+      <p class="mt-1 text-[10px] text-white/20">
+        权重：{{ card.weight || 1 }}
+      </p>
+    </div>
+
+    <div class="flex gap-2 flex-shrink-0">
+      <button
+        class="text-xs text-white/50 hover:text-white/80 border border-white/10 rounded px-2 py-1"
+        @click="startEditCard(card)"
+      >
+        编辑
+      </button>
+      <button
+        class="text-xs text-red-400/60 hover:text-red-400 border border-red-400/10 rounded px-2 py-1"
+        @click="handleDeleteCard(card.id)"
+      >
+        删除
+      </button>
+    </div>
+  </div>
+</div>
+
 
           <!-- 新增字卡 -->
           <div class="flex gap-2 pt-2">
@@ -130,14 +165,18 @@
           v-model="editContent"
           class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-20 resize-none"
         />
-        <div class="space-y-2">
-          <label class="text-xs text-white/40">触发词（逗号分隔）</label>
-          <input
-            v-model="editTriggerWords"
-            class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
-            placeholder="关键词1, 关键词2"
-          />
-        </div>
+      <div class="space-y-2">
+  <label class="text-xs text-white/40">关键词</label>
+  <input
+    v-model="editTriggerWords"
+    class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
+    placeholder="例如：累, 想你, 睡不着"
+  />
+  <p class="text-xs text-white/25">
+    多个关键词用逗号分隔。用户消息里包含这些词时，这张字卡会更容易被抽中。
+  </p>
+</div>
+
         <div class="space-y-2">
           <label class="text-xs text-white/40">权重</label>
           <input
@@ -272,21 +311,37 @@ async function handleAddCard(libId: string) {
 
 function startEditCard(card: WhisperCard) {
   editingCard.value = card
-  editContent.value = card.content
-  editTriggerWords.value = card.triggerWords.join(', ')
-  editWeight.value = card.weight
+  editContent.value = card.content || ''
+  editTriggerWords.value = (card.triggerWords || []).join(', ')
+  editWeight.value = card.weight || 1
 }
 
 async function handleSaveCard() {
   if (!editingCard.value) return
+
+  const triggerWords = Array.from(
+    new Set(
+      editTriggerWords.value
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean)
+    )
+  )
+
   await updateCard(editingCard.value.id, {
-    content: editContent.value,
-    triggerWords: editTriggerWords.value.split(',').map(s => s.trim()).filter(s => s),
-    weight: editWeight.value
+    content: editContent.value.trim(),
+    triggerWords,
+    weight: Math.max(1, Number(editWeight.value) || 1)
   })
+
   editingCard.value = null
+  editContent.value = ''
+  editTriggerWords.value = ''
+  editWeight.value = 1
+
   if (expanded.value) {
     libraryCards.value = await getCardsByLibrary(expanded.value)
+    cardCounts.value[expanded.value] = libraryCards.value.length
   }
 }
 
