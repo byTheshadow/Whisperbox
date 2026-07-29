@@ -24,11 +24,15 @@
         <div class="flex items-center justify-between">
           <h3 class="text-sm text-white/80">{{ lib.name }}</h3>
           <div class="flex gap-2">
-            <button class="text-xs text-white/40 hover:text-white/70" @click="startImport(lib.id)">导入</button>
+            <button class="text-xs text-white/40 hover:text-white/70" @click="startImport(lib.id)">
+              导入
+            </button>
             <button class="text-xs text-white/40 hover:text-white/70" @click="toggleExpand(lib.id)">
               {{ expanded === lib.id ? '收起' : '展开' }}
             </button>
-            <button class="text-xs text-red-400/60 hover:text-red-400" @click="handleDeleteLib(lib.id)">删除</button>
+            <button class="text-xs text-red-400/60 hover:text-red-400" @click="handleDeleteLib(lib.id)">
+              删除
+            </button>
           </div>
         </div>
 
@@ -36,53 +40,56 @@
         <p class="text-xs text-white/30">共 {{ cardCounts[lib.id] || 0 }} 条字卡</p>
 
         <!-- 展开的字卡列表 -->
-       <div
-  v-for="card in libraryCards"
-  :key="card.id"
-  class="rounded border border-white/5 bg-black/20 px-3 py-2 space-y-2"
->
-  <div class="flex items-start gap-3">
-    <div class="flex-1 min-w-0">
-      <p class="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">
-        {{ card.content }}
-      </p>
+        <div v-if="expanded === lib.id" class="space-y-3">
+          <div
+            v-for="card in libraryCards"
+            :key="card.id"
+            class="rounded border border-white/5 bg-black/20 px-3 py-2 space-y-2"
+          >
+            <div class="flex items-start gap-3">
+              <div class="flex-1 min-w-0">
+                <p class="text-xs text-white/70 leading-relaxed whitespace-pre-wrap">
+                  {{ card.content }}
+                </p>
 
-      <div class="mt-2 flex flex-wrap gap-1" v-if="card.triggerWords && card.triggerWords.length > 0">
-        <span
-          v-for="word in card.triggerWords"
-          :key="word"
-          class="text-[10px] text-white/40 border border-white/10 rounded px-1.5 py-0.5"
-        >
-          {{ word }}
-        </span>
-      </div>
+                <div
+                  v-if="card.triggerWords && card.triggerWords.length > 0"
+                  class="mt-2 flex flex-wrap gap-1"
+                >
+                  <span
+                    v-for="word in card.triggerWords"
+                    :key="word"
+                    class="text-[10px] text-white/40 border border-white/10 rounded px-1.5 py-0.5"
+                  >
+                    {{ word }}
+                  </span>
+                </div>
 
-      <p v-else class="mt-2 text-[10px] text-white/20">
-        未设置关键词
-      </p>
+                <p v-else class="mt-2 text-[10px] text-white/20">
+                  未设置关键词
+                </p>
 
-      <p class="mt-1 text-[10px] text-white/20">
-        权重：{{ card.weight || 1 }}
-      </p>
-    </div>
+                <p class="mt-1 text-[10px] text-white/20">
+                  权重：{{ card.weight || 1 }}
+                </p>
+              </div>
 
-    <div class="flex gap-2 flex-shrink-0">
-      <button
-        class="text-xs text-white/50 hover:text-white/80 border border-white/10 rounded px-2 py-1"
-        @click="startEditCard(card)"
-      >
-        编辑
-      </button>
-      <button
-        class="text-xs text-red-400/60 hover:text-red-400 border border-red-400/10 rounded px-2 py-1"
-        @click="handleDeleteCard(card.id)"
-      >
-        删除
-      </button>
-    </div>
-  </div>
-</div>
-
+              <div class="flex gap-2 flex-shrink-0">
+                <button
+                  class="text-xs text-white/50 hover:text-white/80 border border-white/10 rounded px-2 py-1"
+                  @click="startEditCard(card)"
+                >
+                  编辑
+                </button>
+                <button
+                  class="text-xs text-red-400/60 hover:text-red-400 border border-red-400/10 rounded px-2 py-1"
+                  @click="handleDeleteCard(card.id)"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
 
           <!-- 新增字卡 -->
           <div class="flex gap-2 pt-2">
@@ -126,8 +133,18 @@
           placeholder="描述（可选）"
         />
         <div class="flex justify-end gap-3">
-          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" @click="showNewLib = false">取消</button>
-          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" @click="handleCreateLib">创建</button>
+          <button
+            class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
+            @click="showNewLib = false"
+          >
+            取消
+          </button>
+          <button
+            class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10"
+            @click="handleCreateLib"
+          >
+            创建
+          </button>
         </div>
       </div>
     </div>
@@ -147,8 +164,18 @@
           placeholder="每一行作为一条字卡内容"
         />
         <div class="flex justify-end gap-3">
-          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" @click="importTargetId = ''">取消</button>
-          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" @click="handleImport">导入</button>
+          <button
+            class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
+            @click="importTargetId = ''"
+          >
+            取消
+          </button>
+          <button
+            class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10"
+            @click="handleImport"
+          >
+            导入
+          </button>
         </div>
       </div>
     </div>
@@ -161,21 +188,23 @@
     >
       <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
         <h2 class="text-sm text-white/80">编辑字卡</h2>
+
         <textarea
           v-model="editContent"
           class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-20 resize-none"
         />
-      <div class="space-y-2">
-  <label class="text-xs text-white/40">关键词</label>
-  <input
-    v-model="editTriggerWords"
-    class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
-    placeholder="例如：累, 想你, 睡不着"
-  />
-  <p class="text-xs text-white/25">
-    多个关键词用逗号分隔。用户消息里包含这些词时，这张字卡会更容易被抽中。
-  </p>
-</div>
+
+        <div class="space-y-2">
+          <label class="text-xs text-white/40">关键词</label>
+          <input
+            v-model="editTriggerWords"
+            class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
+            placeholder="例如：累, 想你, 睡不着"
+          />
+          <p class="text-xs text-white/25">
+            多个关键词用逗号分隔。用户消息里包含这些词时，这张字卡会更容易被抽中。
+          </p>
+        </div>
 
         <div class="space-y-2">
           <label class="text-xs text-white/40">权重</label>
@@ -186,9 +215,20 @@
             class="w-20 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white/80"
           />
         </div>
+
         <div class="flex justify-end gap-3">
-          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" @click="editingCard = null">取消</button>
-          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" @click="handleSaveCard">保存</button>
+          <button
+            class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
+            @click="editingCard = null"
+          >
+            取消
+          </button>
+          <button
+            class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10"
+            @click="handleSaveCard"
+          >
+            保存
+          </button>
         </div>
       </div>
     </div>
@@ -232,6 +272,7 @@ onMounted(loadData)
 
 async function loadData() {
   libraries.value = await getAllLibraries()
+
   for (const lib of libraries.value) {
     const cards = await getCardsByLibrary(lib.id)
     cardCounts.value[lib.id] = cards.length
@@ -242,10 +283,11 @@ async function toggleExpand(libId: string) {
   if (expanded.value === libId) {
     expanded.value = ''
     libraryCards.value = []
-  } else {
-    expanded.value = libId
-    libraryCards.value = await getCardsByLibrary(libId)
+    return
   }
+
+  expanded.value = libId
+  libraryCards.value = await getCardsByLibrary(libId)
 }
 
 async function handleCreateLib() {
@@ -269,11 +311,14 @@ async function handleCreateLib() {
 
 async function handleDeleteLib(id: string) {
   if (!confirm('删除字卡库将同时删除其中所有字卡')) return
+
   await deleteLibrary(id)
+
   if (expanded.value === id) {
     expanded.value = ''
     libraryCards.value = []
   }
+
   await loadData()
 }
 
@@ -283,17 +328,19 @@ function startImport(libId: string) {
 }
 
 async function handleImport() {
-  if (!importText.value.trim()) return
+  if (!importText.value.trim() || !importTargetId.value) return
 
   try {
     await importCardsFromText(importTargetId.value, importText.value)
 
+    const targetId = importTargetId.value
     importTargetId.value = ''
     importText.value = ''
+
     await loadData()
 
-    if (expanded.value) {
-      libraryCards.value = await getCardsByLibrary(expanded.value)
+    if (expanded.value === targetId) {
+      libraryCards.value = await getCardsByLibrary(targetId)
     }
   } catch (err) {
     console.error('导入字卡失败:', err)
@@ -303,10 +350,21 @@ async function handleImport() {
 
 async function handleAddCard(libId: string) {
   if (!newCardContent.value.trim()) return
-  await createCard({ libraryId: libId, content: newCardContent.value.trim() })
+
+  await createCard({
+    libraryId: libId,
+    content: newCardContent.value.trim()
+  })
+
   newCardContent.value = ''
-  libraryCards.value = await getCardsByLibrary(libId)
-  cardCounts.value[libId] = libraryCards.value.length
+
+  if (expanded.value === libId) {
+    libraryCards.value = await getCardsByLibrary(libId)
+    cardCounts.value[libId] = libraryCards.value.length
+  } else {
+    const cards = await getCardsByLibrary(libId)
+    cardCounts.value[libId] = cards.length
+  }
 }
 
 function startEditCard(card: WhisperCard) {
@@ -334,19 +392,22 @@ async function handleSaveCard() {
     weight: Math.max(1, Number(editWeight.value) || 1)
   })
 
+  const editedLibId = expanded.value
+
   editingCard.value = null
   editContent.value = ''
   editTriggerWords.value = ''
   editWeight.value = 1
 
-  if (expanded.value) {
-    libraryCards.value = await getCardsByLibrary(expanded.value)
-    cardCounts.value[expanded.value] = libraryCards.value.length
+  if (editedLibId) {
+    libraryCards.value = await getCardsByLibrary(editedLibId)
+    cardCounts.value[editedLibId] = libraryCards.value.length
   }
 }
 
 async function handleDeleteCard(id: string) {
   await deleteCard(id)
+
   if (expanded.value) {
     libraryCards.value = await getCardsByLibrary(expanded.value)
     cardCounts.value[expanded.value] = libraryCards.value.length
