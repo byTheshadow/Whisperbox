@@ -121,10 +121,10 @@ function getCharacterAvatar(charId: string): string {
 
 function getCharacterStatus(charId: string): string {
   const c = characters.value.find(ch => ch.id === charId)
-  if (!c || c.statusTexts.length === 0) return ''
-  const idx = Math.floor(Math.random() * c.statusTexts.length)
-  return c.statusTexts[idx]
+  if (!c || !c.statusTexts || c.statusTexts.length === 0) return ''
+  return c.statusTexts[0]
 }
+
 
 function formatTime(ts: number): string {
   const d = new Date(ts)

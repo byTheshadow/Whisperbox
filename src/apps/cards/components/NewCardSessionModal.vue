@@ -76,7 +76,9 @@
             class="w-16 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white/80 text-center"
           />
         </div>
-        <p class="text-xs text-white/30">设定时间内未手动回复，系统自动抽取字卡</p>
+      <p class="text-xs text-white/30">
+  角色会在这个区间内尝试回复；若超过最晚时间仍无回复，系统会兜底抽取字卡。
+</p>
       </div>
 
       <!-- 字卡库选择 -->
@@ -156,9 +158,39 @@ const canCreate = computed(() => form.value.cardCharacterId && form.value.person
 
 onMounted(async () => {
   characters.value = await getAllCardCharacters()
-  personas.value = await db.personas.toArray()
+  personas.value = await ensureDefaultPersona()
   libraries.value = await getAllLibraries()
+
+  if (personas.value.length > 0 && !form.value.personaId) {
+    const defaultPersona = personas.value.find(p => p.isDefault) || personas.value[0]
+    form.value.personaId = defaultPersona.id
+  }
 })
+
+async function ensureDefaultPersona(): Promise<Persona[]> {
+  const existing = await db.personas.toArray()
+
+  if (existing.length > 0) {
+    return existing
+  }
+
+  const now = Date.now()
+
+  const defaultPersona: Persona = {
+    id: crypto.randomUUID(),
+    name: 'User',
+    avatar: '',
+    description: '默认身份',
+    isDefault: true,
+    isRealUser: true,
+    createdAt: now
+  }
+
+  await db.personas.add(defaultPersona)
+
+  return [defaultPersona]
+}
+
 
 async function handleCreate() {
   const charName = characters.value.find(c => c.id === form.value.cardCharacterId)?.name || '对话'

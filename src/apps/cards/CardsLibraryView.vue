@@ -211,11 +211,21 @@ async function toggleExpand(libId: string) {
 
 async function handleCreateLib() {
   if (!newLibName.value.trim()) return
-  await createLibrary({ name: newLibName.value.trim(), description: newLibDesc.value.trim() })
-  newLibName.value = ''
-  newLibDesc.value = ''
-  showNewLib.value = false
-  await loadData()
+
+  try {
+    await createLibrary({
+      name: newLibName.value.trim(),
+      description: newLibDesc.value.trim()
+    })
+
+    newLibName.value = ''
+    newLibDesc.value = ''
+    showNewLib.value = false
+    await loadData()
+  } catch (err) {
+    console.error('创建字卡库失败:', err)
+    alert('创建字卡库失败，请打开控制台查看错误。')
+  }
 }
 
 async function handleDeleteLib(id: string) {
@@ -235,12 +245,20 @@ function startImport(libId: string) {
 
 async function handleImport() {
   if (!importText.value.trim()) return
-  await importCardsFromText(importTargetId.value, importText.value)
-  importTargetId.value = ''
-  importText.value = ''
-  await loadData()
-  if (expanded.value) {
-    libraryCards.value = await getCardsByLibrary(expanded.value)
+
+  try {
+    await importCardsFromText(importTargetId.value, importText.value)
+
+    importTargetId.value = ''
+    importText.value = ''
+    await loadData()
+
+    if (expanded.value) {
+      libraryCards.value = await getCardsByLibrary(expanded.value)
+    }
+  } catch (err) {
+    console.error('导入字卡失败:', err)
+    alert('导入字卡失败，请打开控制台查看错误。')
   }
 }
 

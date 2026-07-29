@@ -473,3 +473,26 @@ export async function initDefaultSettings(): Promise<void> {
     })
   }
 }
+
+export async function initDefaultPersona(): Promise<void> {
+  const count = await db.personas.count()
+
+  if (count > 0) return
+
+  const now = Date.now()
+
+  await db.personas.put({
+    id: crypto.randomUUID(),
+    name: 'User',
+    avatar: '',
+    description: '默认身份',
+    isDefault: true,
+    isRealUser: true,
+    createdAt: now
+  })
+}
+
+export async function initAppData(): Promise<void> {
+  await initDefaultSettings()
+  await initDefaultPersona()
+}
