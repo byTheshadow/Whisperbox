@@ -129,6 +129,7 @@
   </div>
 </template>
 
+
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import type { CardCharacter, Persona, CardLibrary } from '@/core/db'
@@ -154,7 +155,9 @@ const form = ref({
   libraryIds: [] as string[]
 })
 
-const canCreate = computed(() => form.value.cardCharacterId && form.value.personaId)
+const canCreate = computed(() => {
+  return !!form.value.cardCharacterId && !!form.value.personaId
+})
 
 onMounted(async () => {
   characters.value = await getAllCardCharacters()
@@ -164,6 +167,10 @@ onMounted(async () => {
   if (personas.value.length > 0 && !form.value.personaId) {
     const defaultPersona = personas.value.find(p => p.isDefault) || personas.value[0]
     form.value.personaId = defaultPersona.id
+  }
+
+  if (characters.value.length > 0 && !form.value.cardCharacterId) {
+    form.value.cardCharacterId = characters.value[0].id
   }
 })
 
@@ -187,27 +194,37 @@ async function ensureDefaultPersona(): Promise<Persona[]> {
   }
 
   await db.personas.add(defaultPersona)
-
   return [defaultPersona]
 }
 
-
 async function handleCreate() {
-  const charName = characters.value.find(c => c.id === form.value.cardCharacterId)?.name || '对话'
+  if (!form.value.cardCharacterId || !form.value.personaId) return
+
+  const charName =
+    characters.value.find(c => c.id === form.value.cardCharacterId)?.name || '对话'
+
+  const min = Math.max(0, Number(form.value.replyDelayMin) || 0)
+  const max = Math.max(min, Number(form.value.replyDelayMax) || min)
+
   await createCardSession({
     cardCharacterId: form.value.cardCharacterId,
     personaId: form.value.personaId,
-    title: form.value.title || charName,
+    title: form.value.title.trim() || charName,
     replyMode: form.value.replyMode,
-    replyDelayMin: form.value.replyDelayMin,
-    replyDelayMax: form.value.replyDelayMax,
+    replyDelayMin: min,
+    replyDelayMax: max,
     libraryIds: form.value.libraryIds
   })
+
   emit('created')
 }
 
 async function onCharacterCreated() {
   showCharEditor.value = false
   characters.value = await getAllCardCharacters()
+
+  if (!form.value.cardCharacterId && characters.value.length > 0) {
+    form.value.cardCharacterId = characters.value[0].id
+  }
 }
 </script>
