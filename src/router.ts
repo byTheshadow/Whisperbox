@@ -29,6 +29,11 @@ const router = createRouter({
       component: () => import('@/apps/cards/CardsLibraryView.vue')
     },
     {
+  path: '/cards/characters',
+  name: 'cards-characters',
+  component: () => import('@/apps/cards/CardsCharactersView.vue')
+},
+    {
       path: '/cards/session/:sessionId',
       name: 'cards-session',
       component: () => import('@/apps/cards/CardsSessionView.vue')
