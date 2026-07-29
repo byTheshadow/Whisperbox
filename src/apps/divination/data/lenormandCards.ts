@@ -1,3 +1,4 @@
+import type { Deck, DivinationCard } from '../types'
 const lenormandCards = [
   {
     id: 'lenormand-01',
