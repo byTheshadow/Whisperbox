@@ -130,7 +130,7 @@ import type { CardCharacter, CardLibrary } from '@/core/db'
 import {
   createCardCharacter,
   updateCardCharacter
-} from '../services/cardCharacterService'
+} from '../services/cardSessionService'
 import {
   getAllLibraries,
   getLibrariesByCharacterId,
