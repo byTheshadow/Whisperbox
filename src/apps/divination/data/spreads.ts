@@ -1,4 +1,5 @@
-import type { Spread, SpreadPosition } from '../types'
+import type { Spread } from '../types'
+
 
 export const SPREADS: Spread[] = [
   // ========== 单牌占卜 ==========
