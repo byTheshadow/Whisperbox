@@ -506,10 +506,8 @@ async function doFallbackReply() {
 }
 
 // ========== 专注完成 ==========
-
-async function onFocusCompleted(minutes: number, goal: string) {
+async function onFocusCompleted(_minutes: number, _goal: string) {
   showFocus.value = false
-  // 专注完成后，角色自动发一条字卡作为奖励
   const cards = await drawRandomCards(session.value?.libraryIds || [], 1)
   if (cards.length > 0) {
     await sendCardReply(sessionId, cards[0].content, [cards[0].id])
@@ -517,6 +515,7 @@ async function onFocusCompleted(minutes: number, goal: string) {
     scrollToBottom()
   }
 }
+
 
 // ========== 设置 ==========
 
