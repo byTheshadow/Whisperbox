@@ -4,12 +4,11 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import type { 
   DivinationStep, 
-  Deck, 
-  Spread, 
   DivinationCard,
   DrawnCard,
   DivinationReading 
 } from './types'
+
 import { 
   getAvailableDecks, 
   getAvailableSpreads,
