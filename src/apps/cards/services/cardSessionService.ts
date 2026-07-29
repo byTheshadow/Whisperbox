@@ -74,9 +74,9 @@ export async function createCardSession(data: {
 
   const session: CardSession = {
     id: genId(),
-    mode: 'card',
     cardCharacterId: data.cardCharacterId,
     personaId: data.personaId,
+    mode: 'roleplay',
     title: data.title,
     wallpaper: '',
     bubbleStyle: 'classic',
@@ -140,12 +140,18 @@ export async function sendUserMessage(
     media: data.media,
     timestamp: Date.now()
   }
+
   await db.cardMessages.put(msg)
   await db.cardSessions.update(sessionId, { lastMessageAt: msg.timestamp })
+
   return msg
 }
 
-export async function sendCardReply(sessionId: string, content: string, sourceCardIds: string[]): Promise<CardMessage> {
+export async function sendCardReply(
+  sessionId: string,
+  content: string,
+  sourceCardIds: string[]
+): Promise<CardMessage> {
   const msg: CardMessage = {
     id: genId(),
     sessionId,
@@ -154,8 +160,10 @@ export async function sendCardReply(sessionId: string, content: string, sourceCa
     sourceCardIds,
     timestamp: Date.now()
   }
+
   await db.cardMessages.put(msg)
   await db.cardSessions.update(sessionId, { lastMessageAt: msg.timestamp })
+
   return msg
 }
 
