@@ -449,6 +449,41 @@ export class WhisperboxDB extends Dexie {
           session.typingIndicatorText ??= '正在输入...'
         })
       })
+
+    this.version(6).stores({
+      characters: 'id, name, createdAt',
+      personas: 'id, name, isDefault, isRealUser',
+      messages: 'id, sessionId, timestamp, role',
+      chatSessions: 'id, characterId, personaId, mode, lastMessageAt, createdAt',
+      whisperCards: 'id, libraryId, *triggerWords, createdAt',
+      cardLibraries: 'id, name, createdAt, *boundCharacterIds',
+      memoryEntries:
+        'id, characterId, sessionId, type, scope, importance, createdAt, updatedAt, isPermanent, enabled, status, source, *tags, *keywords',
+      worldBookEntries: 'id, worldBookId, *key, isEnabled',
+      worldBooks: 'id, characterId',
+      todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
+      noteEntries: 'id, owner, exposeToMemory, updatedAt',
+      appSettings: 'id',
+      stickerPacks: 'id, name, isEnabled, createdAt',
+      stickerItems: 'id, packId, name, *triggerWords, createdAt',
+      cardCharacters: 'id, name, createdAt',
+      cardSessions: 'id, cardCharacterId, personaId, lastMessageAt, createdAt',
+      cardMessages: 'id, sessionId, timestamp, role',
+      dailyRituals: 'id'
+    }).upgrade(async tx => {
+      await tx.table('cardLibraries').toCollection().modify((lib: any) => {
+        lib.createdAt ??= Date.now()
+        lib.boundCharacterIds ??= []
+        lib.replyInterval ??= 0
+        lib.typingText ??= ''
+      })
+
+      await tx.table('whisperCards').toCollection().modify((card: any) => {
+        card.createdAt ??= Date.now()
+        card.triggerWords ??= []
+        card.weight ??= 1
+      })
+    })
   }
 }
 

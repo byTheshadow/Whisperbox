@@ -11,6 +11,8 @@ export async function createLibrary(data: {
   name: string
   description?: string
 }): Promise<CardLibrary> {
+  const now = Date.now()
+
   const lib: CardLibrary = {
     id: genId(),
     name: data.name,
@@ -18,14 +20,27 @@ export async function createLibrary(data: {
     boundCharacterIds: [],
     replyInterval: 0,
     typingText: '',
-    createdAt: Date.now()
+    createdAt: now
   }
-  await db.cardLibraries.put(lib)
+
+  await db.cardLibraries.put({
+    ...lib,
+    boundCharacterIds: [...lib.boundCharacterIds]
+  })
+
   return lib
 }
 
-export async function updateLibrary(id: string, data: Partial<Omit<CardLibrary, 'id' | 'createdAt'>>): Promise<void> {
-  await db.cardLibraries.update(id, data)
+export async function updateLibrary(
+  id: string,
+  data: Partial<Omit<CardLibrary, 'id' | 'createdAt'>>
+): Promise<void> {
+  await db.cardLibraries.update(id, {
+    ...data,
+    boundCharacterIds: data.boundCharacterIds
+      ? [...data.boundCharacterIds]
+      : data.boundCharacterIds
+  })
 }
 
 export async function deleteLibrary(id: string): Promise<void> {
@@ -34,7 +49,8 @@ export async function deleteLibrary(id: string): Promise<void> {
 }
 
 export async function getAllLibraries(): Promise<CardLibrary[]> {
-  return db.cardLibraries.orderBy('createdAt').reverse().toArray()
+  const all = await db.cardLibraries.toArray()
+  return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
 export async function getLibrary(id: string): Promise<CardLibrary | undefined> {
@@ -53,16 +69,25 @@ export async function createCard(data: {
     id: genId(),
     libraryId: data.libraryId,
     content: data.content,
-    triggerWords: data.triggerWords || [],
+    triggerWords: [...(data.triggerWords || [])],
     weight: data.weight ?? 1,
     createdAt: Date.now()
   }
+
   await db.whisperCards.put(card)
   return card
 }
 
-export async function updateCard(id: string, data: Partial<Omit<WhisperCard, 'id' | 'createdAt'>>): Promise<void> {
-  await db.whisperCards.update(id, data)
+export async function updateCard(
+  id: string,
+  data: Partial<Omit<WhisperCard, 'id' | 'createdAt'>>
+): Promise<void> {
+  await db.whisperCards.update(id, {
+    ...data,
+    triggerWords: data.triggerWords
+      ? [...data.triggerWords]
+      : data.triggerWords
+  })
 }
 
 export async function deleteCard(id: string): Promise<void> {
@@ -70,26 +95,35 @@ export async function deleteCard(id: string): Promise<void> {
 }
 
 export async function getCardsByLibrary(libraryId: string): Promise<WhisperCard[]> {
-  return db.whisperCards.where('libraryId').equals(libraryId).toArray()
+  const cards = await db.whisperCards.where('libraryId').equals(libraryId).toArray()
+  return cards.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
 export async function getAllCards(): Promise<WhisperCard[]> {
-  return db.whisperCards.toArray()
+  const all = await db.whisperCards.toArray()
+  return all.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
 }
 
 /**
  * 导入字卡：一行一条纯文本
  */
 export async function importCardsFromText(libraryId: string, text: string): Promise<number> {
-  const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0)
+  const lines = text
+    .split('\n')
+    .map(l => l.trim())
+    .filter(l => l.length > 0)
+
+  const now = Date.now()
+
   const cards: WhisperCard[] = lines.map(line => ({
     id: genId(),
     libraryId,
     content: line,
     triggerWords: [],
     weight: 1,
-    createdAt: Date.now()
+    createdAt: now
   }))
+
   await db.whisperCards.bulkPut(cards)
   return cards.length
 }
