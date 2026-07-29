@@ -1,9 +1,21 @@
 // src/apps/divination/data/index.ts
 
-// 数据层入口，后续在这里导出各牌组和牌阵数据
+import type { Deck, Spread } from '../types'
 
-export const TAROT_DECK = null // TODO: tarotCards.ts
-export const LENORMAND_DECK = null // TODO: lenormandCards.ts
-export const SPIRIT_DECK = null // TODO: spiritCards.ts
+import { TAROT_DECK } from './tarotCards'
+import { LENORMAND_DECK } from './lenormandCards'
+import { SPREADS as TAROT_SPREADS } from './spreads'
+import { LENORMAND_SPREADS } from './lenormandSpreads'
 
-export const SPREADS = null // TODO: spreads.ts
+/** 所有牌组 */
+export const ALL_DECKS: Deck[] = [
+  TAROT_DECK,
+  LENORMAND_DECK
+]
+
+/** 所有牌阵 */
+export const ALL_SPREADS: Spread[] = [
+  ...TAROT_SPREADS,
+  ...LENORMAND_SPREADS
+]
+

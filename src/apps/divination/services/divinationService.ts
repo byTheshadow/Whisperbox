@@ -8,27 +8,21 @@ import type {
   DivinationReading,
   DeckType
 } from '../types'
+import { ALL_DECKS, ALL_SPREADS } from '../data'
 
 /** 获取所有可用牌组 */
 export function getAvailableDecks(): Deck[] {
-  // TODO: 接入实际数据
-  return []
+  return ALL_DECKS
 }
 
 /** 获取所有可用牌阵 */
 export function getAvailableSpreads(): Spread[] {
-  // TODO: 接入实际数据
-  return []
+  return ALL_SPREADS
 }
 
-/**
- * 根据牌组类型筛选适用的牌阵。
- * - 如果 spread.supportedDeckTypes 为空或未设置，视为通用牌阵，所有牌组都可用
- * - 否则仅当 deckType 在 supportedDeckTypes 中时返回
- */
+/** 根据牌组类型筛选适用的牌阵 */
 export function getSpreadsForDeckType(deckType: DeckType): Spread[] {
-  const all = getAvailableSpreads()
-  return all.filter(spread => {
+  return ALL_SPREADS.filter(spread => {
     if (!spread.supportedDeckTypes || spread.supportedDeckTypes.length === 0) {
       return true
     }
@@ -38,14 +32,12 @@ export function getSpreadsForDeckType(deckType: DeckType): Spread[] {
 
 /** 根据 ID 获取牌组 */
 export function getDeckById(deckId: string): Deck | null {
-  const decks = getAvailableDecks()
-  return decks.find(d => d.id === deckId) ?? null
+  return ALL_DECKS.find(d => d.id === deckId) ?? null
 }
 
 /** 根据 ID 获取牌阵 */
 export function getSpreadById(spreadId: string): Spread | null {
-  const spreads = getAvailableSpreads()
-  return spreads.find(s => s.id === spreadId) ?? null
+  return ALL_SPREADS.find(s => s.id === spreadId) ?? null
 }
 
 /** 洗牌 */
@@ -94,4 +86,3 @@ export function createReading(
     createdAt: Date.now()
   }
 }
-
