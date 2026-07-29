@@ -25,6 +25,7 @@ import DeckSelector from './components/DeckSelector.vue'
 import SpreadSelector from './components/SpreadSelector.vue'
 import CardReveal from './components/CardReveal.vue'
 import ReadingResult from './components/ReadingResult.vue'
+import ShuffleAnimation from './components/ShuffleAnimation.vue'
 
 const router = useRouter()
 
@@ -39,7 +40,7 @@ const selectedSpreadId = ref<string | null>(null)
 const questionMode = ref<'write' | 'meditate'>('write')
 const question = ref('')
 
-// 数据（通过显式标注 computed 类型解决 TS 未使用类型报错）
+// 数据
 const decks = computed(() => getAvailableDecks())
 const spreads = computed(() => getAvailableSpreads())
 const selectedDeck = computed<Deck | null>(() => selectedDeckId.value ? getDeckById(selectedDeckId.value) : null)
@@ -53,6 +54,7 @@ const revealedIndices = ref<number[]>([])
 // 结果
 const currentReading = ref<DivinationReading | null>(null)
 const isRequestingAi = ref(false)
+const aiError = ref<string | null>(null)
 
 // 步骤标题
 const stepTitle = computed(() => {
@@ -68,17 +70,14 @@ const stepTitle = computed(() => {
   }
 })
 
-// 选择牌组
 function handleSelectDeck(deckId: string) {
   selectedDeckId.value = deckId
 }
 
-// 选择牌阵
 function handleSelectSpread(spreadId: string) {
   selectedSpreadId.value = spreadId
 }
 
-// 下一步
 function nextStep() {
   switch (currentStep.value) {
     case 'select-deck':
@@ -88,14 +87,10 @@ function nextStep() {
       if (selectedSpreadId.value) currentStep.value = 'input-question'
       break
     case 'input-question':
-      // 如果是默念模式，清空文本框输入
       if (questionMode.value === 'meditate') {
         question.value = ''
       }
       currentStep.value = 'shuffle'
-      break
-    case 'shuffle':
-      performShuffle()
       break
     case 'draw':
       performDraw()
@@ -108,7 +103,6 @@ function nextStep() {
   }
 }
 
-// 上一步
 function prevStep() {
   switch (currentStep.value) {
     case 'select-spread':
@@ -117,20 +111,16 @@ function prevStep() {
     case 'input-question':
       currentStep.value = 'select-spread'
       break
-    case 'shuffle':
-      currentStep.value = 'input-question'
-      break
   }
 }
 
-// 洗牌
-function performShuffle() {
+/** 洗牌动画结束后触发 */
+function handleShuffleFinished() {
   if (!selectedDeck.value) return
   shuffledCards.value = shuffleDeck(selectedDeck.value.cards)
   currentStep.value = 'draw'
 }
 
-// 抽牌
 function performDraw() {
   if (!selectedDeck.value || !selectedSpread.value) return
   drawnCards.value = drawCards(selectedDeck.value, selectedSpread.value, shuffledCards.value)
@@ -138,14 +128,12 @@ function performDraw() {
   currentStep.value = 'reveal'
 }
 
-// 翻牌
 function handleReveal(index: number) {
   if (!revealedIndices.value.includes(index)) {
     revealedIndices.value.push(index)
   }
 }
 
-// 完成占卜
 function finishReading() {
   if (!selectedDeckId.value || !selectedSpreadId.value) return
   
@@ -159,14 +147,17 @@ function finishReading() {
     finalQuestion,
     drawnCards.value
   )
+  aiError.value = null
   currentStep.value = 'result'
 }
 
-// 请求 AI 解读
+/** 请求 AI 解读 */
 async function handleRequestAi() {
   if (!currentReading.value || !selectedDeck.value || !selectedSpread.value) return
   
+  aiError.value = null
   isRequestingAi.value = true
+
   try {
     const interpretation = await requestAiInterpretation(
       currentReading.value,
@@ -174,12 +165,18 @@ async function handleRequestAi() {
       selectedSpread.value
     )
     currentReading.value.aiInterpretation = interpretation
+  } catch (err) {
+    aiError.value = (err as Error).message || '解读请求失败'
   } finally {
     isRequestingAi.value = false
   }
 }
 
-// 重新开始
+/** 重试 AI 解读 */
+function handleRetryAi() {
+  handleRequestAi()
+}
+
 function restart() {
   currentStep.value = 'select-deck'
   selectedDeckId.value = null
@@ -189,6 +186,8 @@ function restart() {
   drawnCards.value = []
   revealedIndices.value = []
   currentReading.value = null
+  aiError.value = null
+  isRequestingAi.value = false
 }
 </script>
 
@@ -220,19 +219,18 @@ function restart() {
       </template>
       
       <!-- 选择牌阵 -->
-<template v-else-if="currentStep === 'select-spread'">
-  <SpreadSelector
-    :spreads="spreads"
-    :selected-spread-id="selectedSpreadId"
-    :deck-type="selectedDeck?.type ?? null"
-    @select="handleSelectSpread"
-  />
-</template>
+      <template v-else-if="currentStep === 'select-spread'">
+        <SpreadSelector
+          :spreads="spreads"
+          :selected-spread-id="selectedSpreadId"
+          :deck-type="selectedDeck?.type ?? null"
+          @select="handleSelectSpread"
+        />
+      </template>
       
       <!-- 输入问题 -->
       <template v-else-if="currentStep === 'input-question'">
         <div class="space-y-6">
-          <!-- 模式切换 Tab -->
           <div class="flex bg-neutral-900/50 p-1 rounded-lg border border-white/5">
             <button
               class="flex-1 py-2 text-xs rounded transition"
@@ -250,7 +248,6 @@ function restart() {
             </button>
           </div>
 
-          <!-- 写下问题 -->
           <div v-if="questionMode === 'write'" class="space-y-4">
             <div class="text-xs text-white/40">
               写下你的具体问题，有助于 AI 提供更精准的能量解读。
@@ -263,7 +260,6 @@ function restart() {
             />
           </div>
 
-          <!-- 心中默念 -->
           <div v-else class="flex flex-col items-center justify-center py-10 space-y-4 text-center">
             <div class="w-12 h-12 rounded-full border border-violet-500/30 flex items-center justify-center text-violet-400 animate-pulse bg-violet-500/5">
               ✨
@@ -278,12 +274,9 @@ function restart() {
         </div>
       </template>
       
-      <!-- 洗牌 -->
+      <!-- 洗牌（自动播放动画） -->
       <template v-else-if="currentStep === 'shuffle'">
-        <div class="flex flex-col items-center justify-center py-20 space-y-6">
-          <div class="text-sm text-white/60">集中精神，想着你的问题</div>
-          <div class="text-xs text-white/30">准备好后点击下方按钮洗牌</div>
-        </div>
+        <ShuffleAnimation @finish="handleShuffleFinished" />
       </template>
       
       <!-- 抽牌 -->
@@ -318,7 +311,10 @@ function restart() {
           :reading="currentReading"
           :deck="selectedDeck"
           :spread="selectedSpread"
+          :is-requesting="isRequestingAi"
+          :error="aiError"
           @request-ai="handleRequestAi"
+          @retry-ai="handleRetryAi"
           @close="restart"
         />
       </template>
@@ -326,12 +322,12 @@ function restart() {
     
     <!-- 底部操作栏 -->
     <footer 
-      v-if="currentStep !== 'result'"
-      class="px-4 py-4 border-t border-white/5 animate-fade-in"
+      v-if="currentStep !== 'result' && currentStep !== 'shuffle'"
+      class="px-4 py-4 border-t border-white/5"
     >
       <div class="flex gap-3">
         <button
-          v-if="['select-spread', 'input-question', 'shuffle'].includes(currentStep)"
+          v-if="['select-spread', 'input-question'].includes(currentStep)"
           class="flex-1 py-3 rounded-lg border border-white/10 text-white/40 text-sm hover:bg-white/5 transition"
           @click="prevStep"
         >
@@ -353,7 +349,6 @@ function restart() {
           @click="nextStep"
         >
           <template v-if="currentStep === 'input-question' && questionMode === 'meditate'">我已准备好</template>
-          <template v-else-if="currentStep === 'shuffle'">洗牌</template>
           <template v-else-if="currentStep === 'draw'">抽牌</template>
           <template v-else-if="currentStep === 'reveal'">
             {{ revealedIndices.length === drawnCards.length ? '查看解读' : '继续翻牌' }}
@@ -364,3 +359,4 @@ function restart() {
     </footer>
   </div>
 </template>
+

@@ -6,10 +6,13 @@ defineProps<{
   reading: DivinationReading
   deck: Deck | null
   spread: Spread | null
+  isRequesting: boolean
+  error: string | null
 }>()
 
 defineEmits<{
   requestAi: []
+  retryAi: []
   close: []
 }>()
 </script>
@@ -45,10 +48,42 @@ defineEmits<{
     <div class="space-y-3">
       <div class="text-xs text-white/40">解读</div>
       
-      <div v-if="reading.aiInterpretation" class="text-sm text-white/60 leading-relaxed whitespace-pre-wrap">
+      <!-- 已有解读 -->
+      <div 
+        v-if="reading.aiInterpretation" 
+        class="text-sm text-white/70 leading-relaxed whitespace-pre-wrap p-4 rounded-lg border border-violet-500/10 bg-violet-500/[0.03]"
+      >
         {{ reading.aiInterpretation }}
       </div>
       
+      <!-- 加载中 -->
+      <div 
+        v-else-if="isRequesting"
+        class="flex flex-col items-center justify-center py-8 space-y-3"
+      >
+        <div class="flex gap-1.5">
+          <span class="ai-dot" style="animation-delay: 0ms" />
+          <span class="ai-dot" style="animation-delay: 150ms" />
+          <span class="ai-dot" style="animation-delay: 300ms" />
+        </div>
+        <div class="text-xs text-white/40">AI 正在为你解读牌意</div>
+      </div>
+      
+      <!-- 错误 -->
+      <div 
+        v-else-if="error"
+        class="p-4 rounded-lg border border-red-500/20 bg-red-500/5 space-y-3"
+      >
+        <div class="text-xs text-red-300/80 leading-relaxed">{{ error }}</div>
+        <button
+          class="text-xs text-red-300/80 px-3 py-1.5 border border-red-400/20 rounded hover:bg-red-500/10 transition"
+          @click="$emit('retryAi')"
+        >
+          重试
+        </button>
+      </div>
+      
+      <!-- 未请求 -->
       <button
         v-else
         class="w-full py-3 rounded-lg border border-violet-500/30 text-violet-400 text-sm hover:bg-violet-500/10 transition"
@@ -69,3 +104,24 @@ defineEmits<{
     </div>
   </div>
 </template>
+
+<style scoped>
+.ai-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(196, 181, 253, 0.6);
+  animation: dotBounce 1s ease-in-out infinite;
+}
+
+@keyframes dotBounce {
+  0%, 80%, 100% {
+    transform: scale(0.6);
+    opacity: 0.4;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+</style>
