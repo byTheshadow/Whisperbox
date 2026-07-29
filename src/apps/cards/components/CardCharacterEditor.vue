@@ -71,6 +71,38 @@
         />
       </div>
 
+      <!-- 绑定字卡库 -->
+      <div class="space-y-2">
+        <label class="text-xs text-white/40">绑定字卡库</label>
+
+        <div
+          v-if="libraries.length > 0"
+          class="max-h-32 overflow-y-auto space-y-1 rounded border border-white/10 bg-black/30 px-3 py-2"
+        >
+          <label
+            v-for="library in libraries"
+            :key="library.id"
+            class="flex items-center gap-2 py-1 text-xs text-white/60 cursor-pointer"
+          >
+            <input
+              v-model="selectedLibraryIds"
+              type="checkbox"
+              :value="library.id"
+              class="accent-white"
+            />
+            <span class="truncate">{{ library.name }}</span>
+          </label>
+        </div>
+
+        <p v-else class="text-xs text-white/25">
+          暂无字卡库，请先前往字卡库管理创建。
+        </p>
+
+        <p class="text-xs text-white/25 leading-5">
+          角色会从绑定的字卡库中随机送出内容。
+        </p>
+      </div>
+
       <!-- 操作 -->
       <div class="flex justify-end gap-3 pt-2">
         <button
@@ -93,12 +125,17 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref, watch } from 'vue'
-import type { CardCharacter } from '@/core/db'
+import { onMounted, reactive, ref, watch } from 'vue'
+import type { CardCharacter, CardLibrary } from '@/core/db'
 import {
   createCardCharacter,
   updateCardCharacter
-} from '../services/cardSessionService'
+} from '../services/cardCharacterService'
+import {
+  getAllLibraries,
+  getLibrariesByCharacterId,
+  setCharacterLibraries
+} from '../services/cardLibraryService'
 
 const props = withDefaults(
   defineProps<{
@@ -123,6 +160,9 @@ const form = reactive({
 
 const statusRaw = ref('在线\n离开\n发呆中\n思考中\n沉默')
 
+const libraries = ref<CardLibrary[]>([])
+const selectedLibraryIds = ref<string[]>([])
+
 watch(
   () => props.character,
   character => {
@@ -136,6 +176,15 @@ watch(
   },
   { immediate: true }
 )
+
+onMounted(async () => {
+  libraries.value = await getAllLibraries()
+
+  if (props.character?.id) {
+    const boundLibraries = await getLibrariesByCharacterId(props.character.id)
+    selectedLibraryIds.value = boundLibraries.map(library => library.id)
+  }
+})
 
 function onAvatarChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -167,22 +216,26 @@ async function handleSave() {
 
   if (!payload.name) return
 
+  let savedCharacter: CardCharacter
+
   if (props.character) {
     await updateCardCharacter(props.character.id, payload)
 
-    const updated: CardCharacter = {
+    savedCharacter = {
       ...props.character,
       ...payload,
       updatedAt: Date.now()
     }
-
-    emit('saved', updated)
-    emit('created')
   } else {
-    const created = await createCardCharacter(payload)
-
-    emit('saved', created)
-    emit('created')
+    savedCharacter = await createCardCharacter(payload)
   }
+
+  await setCharacterLibraries(
+    savedCharacter.id,
+    [...selectedLibraryIds.value]
+  )
+
+  emit('saved', savedCharacter)
+  emit('created')
 }
 </script>

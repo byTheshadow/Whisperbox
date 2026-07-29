@@ -59,6 +59,49 @@ export async function getLibrary(id: string): Promise<CardLibrary | undefined> {
 
 // ========== 字卡 ==========
 
+export async function getLibrariesByCharacterId(
+  characterId: string
+): Promise<CardLibrary[]> {
+  const libraries = await db.cardLibraries.toArray()
+
+  return libraries
+    .filter(library => Array.isArray(library.boundCharacterIds))
+    .filter(library => library.boundCharacterIds.includes(characterId))
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0))
+}
+
+export async function setCharacterLibraries(
+  characterId: string,
+  libraryIds: string[]
+): Promise<void> {
+  const selectedIds = new Set(libraryIds)
+  const libraries = await db.cardLibraries.toArray()
+
+  await db.transaction('rw', db.cardLibraries, async () => {
+    for (const library of libraries) {
+      const currentIds = Array.isArray(library.boundCharacterIds)
+        ? library.boundCharacterIds
+        : []
+
+      const hasCharacter = currentIds.includes(characterId)
+      const shouldBind = selectedIds.has(library.id)
+
+      if (shouldBind && !hasCharacter) {
+        await db.cardLibraries.update(library.id, {
+          boundCharacterIds: [...currentIds, characterId]
+        })
+      }
+
+      if (!shouldBind && hasCharacter) {
+        await db.cardLibraries.update(library.id, {
+          boundCharacterIds: currentIds.filter(id => id !== characterId)
+        })
+      }
+    }
+  })
+}
+
+
 export async function createCard(data: {
   libraryId: string
   content: string

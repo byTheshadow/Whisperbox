@@ -76,9 +76,9 @@
             class="w-16 bg-black border border-white/20 rounded px-2 py-1 text-sm text-white/80 text-center"
           />
         </div>
-      <p class="text-xs text-white/30">
-  角色会在这个区间内尝试回复；若超过最晚时间仍无回复，系统会兜底抽取字卡。
-</p>
+        <p class="text-xs text-white/30">
+          角色会在这个区间内尝试回复；若超过最晚时间仍无回复，系统会兜底抽取字卡。
+        </p>
       </div>
 
       <!-- 字卡库选择 -->
@@ -95,6 +95,7 @@
               :value="lib.id"
               v-model="form.libraryIds"
               class="accent-white"
+              @change="hasManuallyChangedLibraries = true"
             />
             {{ lib.name }}
           </label>
@@ -122,20 +123,22 @@
 
     <!-- 角色编辑器 -->
     <CardCharacterEditor
-  v-if="showCharEditor"
-  @close="showCharEditor = false"
-  @saved="onCharacterSaved"
-/>
+      v-if="showCharEditor"
+      @close="showCharEditor = false"
+      @saved="onCharacterSaved"
+    />
   </div>
 </template>
 
-
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import type { CardCharacter, Persona, CardLibrary } from '@/core/db'
 import { db } from '@/core/db'
 import { getAllCardCharacters, createCardSession } from '../services/cardSessionService'
-import { getAllLibraries } from '../services/cardLibraryService'
+import {
+  getAllLibraries,
+  getLibrariesByCharacterId
+} from '../services/cardLibraryService'
 import CardCharacterEditor from './CardCharacterEditor.vue'
 
 const emit = defineEmits<{ close: []; created: [] }>()
@@ -144,6 +147,7 @@ const characters = ref<CardCharacter[]>([])
 const personas = ref<Persona[]>([])
 const libraries = ref<CardLibrary[]>([])
 const showCharEditor = ref(false)
+const hasManuallyChangedLibraries = ref(false)
 
 const form = ref({
   cardCharacterId: '',
@@ -173,6 +177,23 @@ onMounted(async () => {
     form.value.cardCharacterId = characters.value[0].id
   }
 })
+
+watch(
+  () => form.value.cardCharacterId,
+  async characterId => {
+    if (hasManuallyChangedLibraries.value) {
+      return
+    }
+
+    if (!characterId) {
+      form.value.libraryIds = []
+      return
+    }
+
+    const boundLibraries = await getLibrariesByCharacterId(characterId)
+    form.value.libraryIds = boundLibraries.map(library => library.id)
+  }
+)
 
 async function ensureDefaultPersona(): Promise<Persona[]> {
   const existing = await db.personas.toArray()
@@ -213,8 +234,7 @@ async function handleCreate() {
     replyMode: form.value.replyMode,
     replyDelayMin: min,
     replyDelayMax: max,
-  libraryIds: [...form.value.libraryIds]
-
+    libraryIds: [...form.value.libraryIds]
   })
 
   emit('created')
@@ -233,5 +253,4 @@ async function onCharacterSaved(character?: CardCharacter) {
     form.value.cardCharacterId = characters.value[0].id
   }
 }
-
 </script>
