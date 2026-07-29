@@ -73,14 +73,16 @@ export async function createCardSession(data: {
     replyMode: data.replyMode || 'random',
     replyDelayMin: data.replyDelayMin ?? 0,
     replyDelayMax: data.replyDelayMax ?? 20,
-    libraryIds: data.libraryIds || [],
+    libraryIds: [...(data.libraryIds || [])], // 关键：转成普通数组
     typingIndicatorText: data.typingIndicatorText || '正在输入...',
     lastMessageAt: Date.now(),
     createdAt: Date.now()
   }
+
   await db.cardSessions.put(session)
   return session
 }
+
 
 export async function updateCardSession(
   id: string,

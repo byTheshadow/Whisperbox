@@ -213,7 +213,8 @@ async function handleCreate() {
     replyMode: form.value.replyMode,
     replyDelayMin: min,
     replyDelayMax: max,
-    libraryIds: form.value.libraryIds
+  libraryIds: [...form.value.libraryIds]
+
   })
 
   emit('created')
