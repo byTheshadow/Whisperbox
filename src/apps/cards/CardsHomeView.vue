@@ -85,7 +85,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+
 import type { CardSession, CardCharacter } from '@/core/db'
 import { getAllCardSessions } from './services/cardSessionService'
 import { getAllCardCharacters } from './services/cardSessionService'
@@ -93,7 +93,7 @@ import { hasTodayRitual } from './services/dailyRitualService'
 import DailyRitualOverlay from './components/DailyRitualOverlay.vue'
 import NewCardSessionModal from './components/NewCardSessionModal.vue'
 
-const router = useRouter()
+
 const sessions = ref<CardSession[]>([])
 const characters = ref<CardCharacter[]>([])
 const showRitual = ref(false)

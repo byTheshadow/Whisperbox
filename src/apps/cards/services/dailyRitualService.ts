@@ -1,5 +1,5 @@
 import { db } from '@/core/db'
-import type { DailyRitual, WhisperCard } from '@/core/db'
+import type { DailyRitual } from '@/core/db'
 import { drawRandomCard } from './cardReplyService'
 
 function todayId(): string {

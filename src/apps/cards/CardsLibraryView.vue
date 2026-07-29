@@ -235,7 +235,7 @@ function startImport(libId: string) {
 
 async function handleImport() {
   if (!importText.value.trim()) return
-  const count = await importCardsFromText(importTargetId.value, importText.value)
+  await importCardsFromText(importTargetId.value, importText.value)
   importTargetId.value = ''
   importText.value = ''
   await loadData()
