@@ -74,6 +74,7 @@ export async function createCardSession(data: {
 
   const session: CardSession = {
     id: genId(),
+    mode: 'card',
     cardCharacterId: data.cardCharacterId,
     personaId: data.personaId,
     title: data.title,
