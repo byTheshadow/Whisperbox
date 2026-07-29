@@ -125,6 +125,60 @@ export interface CardLibrary {
   createdAt: number
 }
 
+/** 字卡角色（Cards App 专用，独立于 Chat 角色） */
+export interface CardCharacter {
+  id: string
+  name: string
+  avatar: string
+  personality: string
+  statusTexts: string[]
+  createdAt: number
+  updatedAt: number
+}
+
+/** 字卡会话（消息框） */
+export interface CardSession {
+  id: string
+  cardCharacterId: string
+  personaId: string
+  title: string
+  wallpaper: string
+  bubbleStyle: string
+  bubbleCustomCss: string
+  replyMode: 'random' | 'keyword'
+  replyDelayMin: number
+  replyDelayMax: number
+  libraryIds: string[]
+  lastMessageAt: number
+  createdAt: number
+}
+
+/** 字卡消息 */
+export interface CardMessage {
+  id: string
+  sessionId: string
+  role: 'user' | 'card'
+  content: string
+  media?: {
+    type: 'image' | 'voice' | 'sticker'
+    description: string
+    url: string
+    name?: string
+  }
+  sourceCardIds?: string[]
+  timestamp: number
+}
+
+/** 每日仪式记录 */
+export interface DailyRitual {
+  id: string
+  tarotCardIndex: number
+  tarotInterpretation: string
+  whisperCardId: string
+  whisperContent: string
+  completedAt: number
+}
+
 /** 记忆条目 */
 export interface MemoryEntry {
   id: string
@@ -322,6 +376,11 @@ export class WhisperboxDB extends Dexie {
   stickerPacks!: Table<StickerPack>
   stickerItems!: Table<StickerItem>
 
+  cardCharacters!: Table<CardCharacter>
+  cardSessions!: Table<CardSession>
+  cardMessages!: Table<CardMessage>
+  dailyRituals!: Table<DailyRitual>
+
   constructor() {
     super('whisperbox')
 
@@ -361,6 +420,29 @@ export class WhisperboxDB extends Dexie {
           memory.updatedAt ??= memory.createdAt ?? Date.now()
         })
       })
+
+    this.version(5).stores({
+      characters: 'id, name, createdAt',
+      personas: 'id, name, isDefault, isRealUser',
+      messages: 'id, sessionId, timestamp, role',
+      chatSessions: 'id, characterId, personaId, mode, lastMessageAt, createdAt',
+      whisperCards: 'id, libraryId, *triggerWords',
+      cardLibraries: 'id, name, *boundCharacterIds',
+      memoryEntries:
+        'id, characterId, sessionId, type, scope, importance, createdAt, updatedAt, isPermanent, enabled, status, source, *tags, *keywords',
+      worldBookEntries: 'id, worldBookId, *key, isEnabled',
+      worldBooks: 'id, characterId',
+      todoItems: 'id, completed, dueAt, remindAt, priority, createdAt',
+      noteEntries: 'id, owner, exposeToMemory, updatedAt',
+      appSettings: 'id',
+      stickerPacks: 'id, name, isEnabled, createdAt',
+      stickerItems: 'id, packId, name, *triggerWords, createdAt',
+      // 新增
+      cardCharacters: 'id, name, createdAt',
+      cardSessions: 'id, cardCharacterId, personaId, lastMessageAt, createdAt',
+      cardMessages: 'id, sessionId, timestamp, role',
+      dailyRituals: 'id'
+    })
   }
 }
 

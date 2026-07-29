@@ -19,10 +19,20 @@ const router = createRouter({
       component: () => import('@/apps/chat/ChatSessionView.vue')
     },
     {
-      path: '/cards',
-      name: 'cards',
-      component: () => import('@/apps/cards/CardsView.vue')
-    },
+  path: '/cards',
+  name: 'cards',
+  component: () => import('@/apps/cards/CardsHomeView.vue')
+},
+{
+  path: '/cards/library',
+  name: 'cards-library',
+  component: () => import('@/apps/cards/CardsLibraryView.vue')
+},
+{
+  path: '/cards/session/:sessionId',
+  name: 'cards-session',
+  component: () => import('@/apps/cards/CardsSessionView.vue')
+},
     {
       path: '/memory',
       name: 'memory',
