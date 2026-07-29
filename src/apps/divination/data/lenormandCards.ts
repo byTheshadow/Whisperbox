@@ -1,5 +1,6 @@
 import type { Deck, DivinationCard } from '../types'
-const lenormandCards = [
+
+const lenormandCards: DivinationCard[] = [
   {
     id: 'lenormand-01',
     deckType: 'lenormand',
@@ -397,3 +398,12 @@ const lenormandCards = [
     order: 36
   }
 ]
+export const LENORMAND_DECK: Deck = {
+  id: 'lenormand-classic',
+  type: 'lenormand',
+  name: '雷诺曼牌',
+  description: '经典雷诺曼牌系统，共36张牌，适合看现实事件、关系与具体发展。',
+  allowReversed: false,
+  backImageUrl: '',
+  cards: lenormandCards
+}
