@@ -11,8 +11,18 @@
       </div>
       <div class="flex-1 min-w-0">
         <p class="text-sm text-white/90 truncate">{{ character?.name || session?.title }}</p>
-        <p class="text-xs text-white/40">{{ characterStatus }}</p>
+        <p class="text-xs text-white/40">
+          <span v-if="replyState === 'thinking'">{{ typingText }}</span>
+          <span v-else>{{ characterStatus }}</span>
+        </p>
       </div>
+      <!-- 专注按钮 -->
+      <button
+        class="text-white/40 text-xs border border-white/10 px-2 py-1 rounded hover:bg-white/10 transition"
+        @click="showFocus = true"
+      >
+        专注
+      </button>
       <button class="text-white/40 text-xs" @click="showSettings = true">设置</button>
     </header>
 
@@ -32,7 +42,7 @@
         <div
           class="max-w-[75%] rounded-2xl px-3 py-2 text-sm leading-relaxed"
           :class="msg.role === 'user' ? userBubbleClass : cardBubbleClass"
-          :style="customBubbleCss"
+          :style="msg.role === 'user' ? customBubbleCssUser : customBubbleCssCard"
         >
           <!-- 媒体消息 -->
           <div v-if="msg.media">
@@ -62,11 +72,14 @@
         </div>
       </div>
 
-      <!-- 自动回复倒计时提示 -->
-      <div v-if="autoReplyCountdown > 0 && lastRole === 'user'" class="text-center">
-        <span class="text-xs text-white/20">
-          {{ Math.ceil(autoReplyCountdown / 60) }} 分钟后自动回复
-        </span>
+      <!-- 打字指示器 -->
+      <div v-if="replyState === 'thinking'" class="flex justify-start">
+        <div class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1">
+          <img v-if="character?.avatar" :src="character.avatar" class="w-full h-full object-cover" alt="" />
+        </div>
+        <div class="rounded-2xl px-3 py-2 bg-neutral-800 text-white/40 text-sm">
+          <span class="typing-indicator">{{ typingText }}</span>
+        </div>
       </div>
     </div>
 
@@ -78,11 +91,14 @@
         <button class="text-xs text-white/30 hover:text-white/60" @click="sendFakeVoice">语音</button>
         <button class="text-xs text-white/30 hover:text-white/60" @click="showStickerPicker = !showStickerPicker">表情</button>
         <div class="flex-1" />
+        <!-- 触发角色回复按钮 -->
         <button
-          class="text-xs text-white/60 border border-white/20 px-3 py-1 rounded hover:bg-white/10 transition"
-          @click="triggerCardReply"
+          class="text-xs border px-3 py-1 rounded transition"
+          :class="replyState === 'idle' ? 'text-white/60 border-white/20 hover:bg-white/10' : 'text-white/20 border-white/5 cursor-not-allowed'"
+          :disabled="replyState !== 'idle'"
+          @click="triggerReply"
         >
-          回复
+          {{ replyState === 'thinking' ? '选卡中...' : '触发回复' }}
         </button>
       </div>
 
@@ -127,6 +143,18 @@
     >
       <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto">
         <h2 class="text-sm text-white/80">消息框设置</h2>
+
+        <!-- 打字指示器文字 -->
+        <div class="space-y-2">
+          <label class="text-xs text-white/40">打字指示器文字</label>
+          <input
+            :value="session?.typingIndicatorText || '正在输入...'"
+            class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80"
+            placeholder="正在输入..."
+            @change="updateTypingText(($event.target as HTMLInputElement).value)"
+          />
+          <p class="text-xs text-white/20">角色选卡时显示的文字</p>
+        </div>
 
         <!-- 壁纸 -->
         <div class="space-y-2">
@@ -181,7 +209,8 @@
 
         <!-- 回复延迟 -->
         <div class="space-y-2">
-          <label class="text-xs text-white/40">自动回复时间区间（分钟）</label>
+          <label class="text-xs text-white/40">回复延迟区间（分钟）</label>
+          <p class="text-xs text-white/20">角色在此区间内随机选一个时间点回复</p>
           <div class="flex items-center gap-2">
             <input
               :value="session?.replyDelayMin ?? 0"
@@ -199,6 +228,7 @@
               @change="updateDelay('max', +($event.target as HTMLInputElement).value)"
             />
           </div>
+          <p class="text-xs text-white/20">超过最大时间，系统兜底随机抽两张字卡回复</p>
         </div>
 
         <button
@@ -209,6 +239,14 @@
         </button>
       </div>
     </div>
+
+    <!-- 专注模式 -->
+    <FocusMode
+      v-if="showFocus"
+      :character-name="character?.name || '角色'"
+      @close="showFocus = false"
+      @completed="onFocusCompleted"
+    />
   </div>
 </template>
 
@@ -225,7 +263,8 @@ import {
   sendCardReply,
   updateCardSession
 } from './services/cardSessionService'
-import { drawRandomCard, drawByKeyword } from './services/cardReplyService'
+import { drawRandomCards, drawByKeyword } from './services/cardReplyService'
+import FocusMode from './components/FocusMode.vue'
 
 const route = useRoute()
 const sessionId = route.params.sessionId as string
@@ -239,17 +278,18 @@ const characterStatus = ref('')
 const inputText = ref('')
 const showStickerPicker = ref(false)
 const showSettings = ref(false)
+const showFocus = ref(false)
 const stickers = ref<StickerItem[]>([])
 const msgContainer = ref<HTMLElement | null>(null)
 
-const autoReplyCountdown = ref(0)
-let autoReplyTimer: ReturnType<typeof setTimeout> | null = null
-let countdownInterval: ReturnType<typeof setInterval> | null = null
+// 回复状态
+const replyState = ref<'idle' | 'thinking'>('idle')
 
-const lastRole = computed(() => {
-  if (messages.value.length === 0) return ''
-  return messages.value[messages.value.length - 1].role
-})
+// 打字指示器文字
+const typingText = computed(() => session.value?.typingIndicatorText || '正在输入...')
+
+let replyTimer: ReturnType<typeof setTimeout> | null = null
+let deadlineTimer: ReturnType<typeof setTimeout> | null = null
 
 // 壁纸样式
 const wallpaperStyle = computed(() => {
@@ -278,23 +318,28 @@ const cardBubbleClass = computed(() => {
   return 'bg-neutral-800 text-white/90'
 })
 
-const customBubbleCss = computed(() => {
-  if (session.value?.bubbleStyle !== 'custom') return {}
+function parseCssString(css: string): Record<string, string> {
+  const styles: Record<string, string> = {}
   try {
-    const css = session.value.bubbleCustomCss || ''
-    const styles: Record<string, string> = {}
     css.split(';').forEach(rule => {
       const [key, val] = rule.split(':').map(s => s.trim())
       if (key && val) {
-        // 转换 CSS 属性名为 camelCase
         const camelKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
         styles[camelKey] = val
       }
     })
-    return styles
-  } catch {
-    return {}
-  }
+  } catch { /* ignore */ }
+  return styles
+}
+
+const customBubbleCssUser = computed(() => {
+  if (session.value?.bubbleStyle !== 'custom') return {}
+  return parseCssString(session.value.bubbleCustomCss || '')
+})
+
+const customBubbleCssCard = computed(() => {
+  if (session.value?.bubbleStyle !== 'custom') return {}
+  return parseCssString(session.value.bubbleCustomCss || '')
 })
 
 onMounted(async () => {
@@ -319,13 +364,16 @@ onMounted(async () => {
   }
 
   scrollToBottom()
-  checkAutoReply()
 })
 
 onUnmounted(() => {
-  if (autoReplyTimer) clearTimeout(autoReplyTimer)
-  if (countdownInterval) clearInterval(countdownInterval)
+  clearTimers()
 })
+
+function clearTimers() {
+  if (replyTimer) { clearTimeout(replyTimer); replyTimer = null }
+  if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null }
+}
 
 // ========== 发送消息 ==========
 
@@ -333,7 +381,7 @@ async function sendText() {
   const text = inputText.value.trim()
   if (!text) return
 
-  // 支持分段多气泡：用换行分隔
+  // 支持分段多气泡：换行分隔
   const segments = text.split('\n').filter(s => s.trim())
   for (const seg of segments) {
     await sendUserMessage(sessionId, { content: seg.trim() })
@@ -342,7 +390,6 @@ async function sendText() {
   inputText.value = ''
   messages.value = await getMessages(sessionId)
   scrollToBottom()
-  startAutoReplyTimer()
 }
 
 async function sendFakeImage() {
@@ -354,7 +401,6 @@ async function sendFakeImage() {
   })
   messages.value = await getMessages(sessionId)
   scrollToBottom()
-  startAutoReplyTimer()
 }
 
 async function sendFakeVoice() {
@@ -366,7 +412,6 @@ async function sendFakeVoice() {
   })
   messages.value = await getMessages(sessionId)
   scrollToBottom()
-  startAutoReplyTimer()
 }
 
 async function sendSticker(sticker: StickerItem) {
@@ -377,15 +422,42 @@ async function sendSticker(sticker: StickerItem) {
   showStickerPicker.value = false
   messages.value = await getMessages(sessionId)
   scrollToBottom()
-  startAutoReplyTimer()
 }
 
-// ========== 字卡回复 ==========
+// ========== 触发回复 ==========
 
-async function triggerCardReply() {
-  if (!session.value) return
+function triggerReply() {
+  if (replyState.value !== 'idle' || !session.value) return
 
-  // 收集最近 user 消息文本（用于关键词匹配）
+  replyState.value = 'thinking'
+  scrollToBottom()
+
+  const minDelay = (session.value.replyDelayMin ?? 0) * 60 * 1000
+  const maxDelay = (session.value.replyDelayMax ?? 20) * 60 * 1000
+
+  // 角色正常回复时间点：min ~ max 之间随机
+  const normalDelay = minDelay + Math.random() * (maxDelay - minDelay)
+
+  // 正常回复计时器
+  replyTimer = setTimeout(async () => {
+    await doNormalReply()
+  }, normalDelay)
+
+  // 最晚兜底计时器
+  deadlineTimer = setTimeout(async () => {
+    if (replyState.value === 'thinking') {
+      if (replyTimer) { clearTimeout(replyTimer); replyTimer = null }
+      await doFallbackReply()
+    }
+  }, maxDelay)
+}
+
+/** 角色正常回复 */
+async function doNormalReply() {
+  if (replyState.value !== 'thinking' || !session.value) return
+
+  if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null }
+
   const recentUserMsgs = messages.value
     .filter(m => m.role === 'user')
     .slice(-5)
@@ -395,8 +467,12 @@ async function triggerCardReply() {
   let card = null
   if (session.value.replyMode === 'keyword' && recentUserMsgs.trim()) {
     card = await drawByKeyword(recentUserMsgs, session.value.libraryIds)
-  } else {
-    card = await drawRandomCard(session.value.libraryIds)
+  }
+
+  // 关键词没匹配到，fallback 随机抽一张
+  if (!card) {
+    const cards = await drawRandomCards(session.value.libraryIds, 1)
+    card = cards[0] || null
   }
 
   if (card) {
@@ -405,71 +481,49 @@ async function triggerCardReply() {
     await sendCardReply(sessionId, '……', [])
   }
 
+  replyState.value = 'idle'
   messages.value = await getMessages(sessionId)
   scrollToBottom()
-  cancelAutoReply()
 }
 
-// ========== 自动回复计时 ==========
-
-function startAutoReplyTimer() {
-  cancelAutoReply()
-
+/** 兜底回复：系统直接随机抽两张 */
+async function doFallbackReply() {
   if (!session.value) return
-  const min = (session.value.replyDelayMin ?? 0) * 60 * 1000
-  const max = (session.value.replyDelayMax ?? 20) * 60 * 1000
-  if (max <= 0) return
 
-  const delay = min + Math.random() * (max - min)
-  autoReplyCountdown.value = Math.round(delay / 1000)
+  const cards = await drawRandomCards(session.value.libraryIds, 2)
 
-  countdownInterval = setInterval(() => {
-    autoReplyCountdown.value = Math.max(0, autoReplyCountdown.value - 1)
-  }, 1000)
+  for (const card of cards) {
+    await sendCardReply(sessionId, card.content, [card.id])
+  }
 
-  autoReplyTimer = setTimeout(() => {
-    triggerCardReply()
-  }, delay)
+  if (cards.length === 0) {
+    await sendCardReply(sessionId, '……', [])
+  }
+
+  replyState.value = 'idle'
+  messages.value = await getMessages(sessionId)
+  scrollToBottom()
 }
 
-function cancelAutoReply() {
-  if (autoReplyTimer) {
-    clearTimeout(autoReplyTimer)
-    autoReplyTimer = null
-  }
-  if (countdownInterval) {
-    clearInterval(countdownInterval)
-    countdownInterval = null
-  }
-  autoReplyCountdown.value = 0
-}
+// ========== 专注完成 ==========
 
-function checkAutoReply() {
-  // 如果最后一条是 user 消息且在时间范围内，启动计时器
-  if (lastRole.value === 'user' && session.value) {
-    const lastMsg = messages.value[messages.value.length - 1]
-    const elapsed = Date.now() - lastMsg.timestamp
-    const maxDelay = (session.value.replyDelayMax ?? 20) * 60 * 1000
-    if (elapsed < maxDelay) {
-      // 重新计算剩余时间
-      const remaining = maxDelay - elapsed
-      autoReplyCountdown.value = Math.round(remaining / 1000)
-
-      countdownInterval = setInterval(() => {
-        autoReplyCountdown.value = Math.max(0, autoReplyCountdown.value - 1)
-      }, 1000)
-
-      autoReplyTimer = setTimeout(() => {
-        triggerCardReply()
-      }, remaining)
-    } else {
-      // 已超时，立即触发
-      triggerCardReply()
-    }
+async function onFocusCompleted(minutes: number, goal: string) {
+  showFocus.value = false
+  // 专注完成后，角色自动发一条字卡作为奖励
+  const cards = await drawRandomCards(session.value?.libraryIds || [], 1)
+  if (cards.length > 0) {
+    await sendCardReply(sessionId, cards[0].content, [cards[0].id])
+    messages.value = await getMessages(sessionId)
+    scrollToBottom()
   }
 }
 
 // ========== 设置 ==========
+
+async function updateTypingText(val: string) {
+  await updateCardSession(sessionId, { typingIndicatorText: val || '正在输入...' })
+  session.value = (await getCardSession(sessionId)) || null
+}
 
 async function onWallpaperChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
@@ -521,3 +575,13 @@ function scrollToBottom() {
   })
 }
 </script>
+
+<style scoped>
+.typing-indicator {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+</style>

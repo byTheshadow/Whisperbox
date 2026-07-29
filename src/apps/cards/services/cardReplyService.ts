@@ -2,9 +2,9 @@ import { db } from '@/core/db'
 import type { WhisperCard } from '@/core/db'
 
 /**
- * 纯随机抽取：按 weight 加权从指定库中抽取一条
+ * 纯随机抽取：按 weight 加权从指定库中抽取 N 条
  */
-export async function drawRandomCard(libraryIds: string[]): Promise<WhisperCard | null> {
+export async function drawRandomCards(libraryIds: string[], count: number = 1): Promise<WhisperCard[]> {
   let cards: WhisperCard[]
   if (libraryIds.length === 0) {
     cards = await db.whisperCards.toArray()
@@ -12,15 +12,26 @@ export async function drawRandomCard(libraryIds: string[]): Promise<WhisperCard 
     cards = await db.whisperCards.where('libraryId').anyOf(libraryIds).toArray()
   }
 
-  if (cards.length === 0) return null
+  if (cards.length === 0) return []
 
-  return weightedRandom(cards)
+  const result: WhisperCard[] = []
+  const pool = [...cards]
+
+  for (let i = 0; i < count && pool.length > 0; i++) {
+    const picked = weightedRandom(pool)
+    result.push(picked)
+    // 避免重复抽到同一张
+    const idx = pool.findIndex(c => c.id === picked.id)
+    if (idx !== -1) pool.splice(idx, 1)
+  }
+
+  return result
 }
 
 /**
  * 关键词匹配抽取：扫描 user 消息，匹配 triggerWords
- * 匹配到则按 weight 加权选一条
- * 没匹配到则 fallback 到纯随机
+ * 匹配到则按 weight 加权选取
+ * 没匹配到则返回 null（由调用方决定是否 fallback）
  */
 export async function drawByKeyword(
   userText: string,
@@ -37,7 +48,6 @@ export async function drawByKeyword(
 
   const lowerText = userText.toLowerCase()
 
-  // 匹配 triggerWords
   const matched = cards.filter(card =>
     card.triggerWords.some(tw => lowerText.includes(tw.toLowerCase()))
   )
@@ -46,8 +56,7 @@ export async function drawByKeyword(
     return weightedRandom(matched)
   }
 
-  // fallback
-  return weightedRandom(cards)
+  return null
 }
 
 /**

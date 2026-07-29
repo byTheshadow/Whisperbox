@@ -149,6 +149,7 @@ export interface CardSession {
   replyDelayMin: number
   replyDelayMax: number
   libraryIds: string[]
+  typingIndicatorText: string   // 新增：自定义打字指示器文字
   lastMessageAt: number
   createdAt: number
 }
@@ -443,6 +444,11 @@ export class WhisperboxDB extends Dexie {
       cardMessages: 'id, sessionId, timestamp, role',
       dailyRituals: 'id'
     })
+      .upgrade(async tx => {
+        await tx.table('cardSessions').toCollection().modify((session: any) => {
+          session.typingIndicatorText ??= '正在输入...'
+        })
+      })
   }
 }
 

@@ -60,6 +60,7 @@ export async function createCardSession(data: {
   replyDelayMin?: number
   replyDelayMax?: number
   libraryIds?: string[]
+  typingIndicatorText?: string
 }): Promise<CardSession> {
   const session: CardSession = {
     id: genId(),
@@ -73,6 +74,7 @@ export async function createCardSession(data: {
     replyDelayMin: data.replyDelayMin ?? 0,
     replyDelayMax: data.replyDelayMax ?? 20,
     libraryIds: data.libraryIds || [],
+    typingIndicatorText: data.typingIndicatorText || '正在输入...',
     lastMessageAt: Date.now(),
     createdAt: Date.now()
   }
