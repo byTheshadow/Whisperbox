@@ -16,6 +16,7 @@
           <span v-else>{{ characterStatus }}</span>
         </p>
       </div>
+
       <!-- 专注按钮 -->
       <button
         class="text-white/40 text-xs border border-white/10 px-2 py-1 rounded hover:bg-white/10 transition"
@@ -35,7 +36,10 @@
         :class="msg.role === 'user' ? 'justify-end' : 'justify-start'"
       >
         <!-- 对方头像 -->
-        <div v-if="msg.role === 'card'" class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1">
+        <div
+          v-if="msg.role === 'card'"
+          class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 mr-2 mt-1"
+        >
           <img v-if="character?.avatar" :src="character.avatar" class="w-full h-full object-cover" alt="" />
         </div>
 
@@ -48,14 +52,19 @@
           <div v-if="msg.media">
             <div v-if="msg.media.type === 'image'" class="rounded overflow-hidden">
               <img v-if="msg.media.url" :src="msg.media.url" class="max-w-full" alt="" />
-              <div v-else class="w-48 h-32 bg-white/10 flex items-center justify-center text-xs text-white/30 rounded">
+              <div
+                v-else
+                class="w-48 h-32 bg-white/10 flex items-center justify-center text-xs text-white/30 rounded"
+              >
                 {{ msg.media.description || '图片' }}
               </div>
             </div>
+
             <div v-else-if="msg.media.type === 'voice'" class="flex items-center gap-2">
               <span class="text-white/40">&#9654;</span>
               <span class="text-xs text-white/50">{{ msg.media.description || '语音消息' }}</span>
             </div>
+
             <div v-else-if="msg.media.type === 'sticker'">
               <img v-if="msg.media.url" :src="msg.media.url" class="w-24 h-24 object-contain" alt="" />
               <span v-else class="text-xs text-white/40">{{ msg.media.name || '表情包' }}</span>
@@ -67,7 +76,10 @@
         </div>
 
         <!-- user 头像 -->
-        <div v-if="msg.role === 'user'" class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 ml-2 mt-1">
+        <div
+          v-if="msg.role === 'user'"
+          class="w-7 h-7 rounded-full overflow-hidden bg-white/10 flex-shrink-0 ml-2 mt-1"
+        >
           <img v-if="personaAvatar" :src="personaAvatar" class="w-full h-full object-cover" alt="" />
         </div>
       </div>
@@ -88,13 +100,17 @@
       <!-- 媒体快捷按钮 -->
       <div class="flex items-center gap-3 mb-2">
         <button class="text-xs text-white/30 hover:text-white/60" @click="openImageInput">图片</button>
-<button class="text-xs text-white/30 hover:text-white/60" @click="openVoiceInput">语音</button>
+        <button class="text-xs text-white/30 hover:text-white/60" @click="openVoiceInput">语音</button>
         <button class="text-xs text-white/30 hover:text-white/60" @click="showStickerPicker = !showStickerPicker">表情</button>
+
         <div class="flex-1" />
+
         <!-- 触发角色回复按钮 -->
         <button
           class="text-xs border px-3 py-1 rounded transition"
-          :class="replyState === 'idle' ? 'text-white/60 border-white/20 hover:bg-white/10' : 'text-white/20 border-white/5 cursor-not-allowed'"
+          :class="replyState === 'idle'
+            ? 'text-white/60 border-white/20 hover:bg-white/10'
+            : 'text-white/20 border-white/5 cursor-not-allowed'"
           :disabled="replyState !== 'idle'"
           @click="triggerReply"
         >
@@ -119,49 +135,87 @@
         </button>
       </div>
 
+      <!-- 图片输入弹窗 -->
       <Teleport to="body">
-  <Transition name="fade">
-    <div v-if="showImageInput" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" @click.self="showImageInput = false">
-      <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
-        <h4 class="text-sm text-white/80">描述这张图片</h4>
-        <textarea
-          v-model="mediaDescription"
-          class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
-          placeholder="描述你想发送的图片内容…"
-          rows="3"
-        ></textarea>
-        <div class="flex justify-end gap-3">
-          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" type="button" @click="showImageInput = false">取消</button>
-          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" type="button" :disabled="!mediaDescription.trim()" @click="sendImage">发送</button>
-        </div>
-      </div>
-    </div>
-  </Transition>
-</Teleport>
+        <Transition name="fade">
+          <div
+            v-if="showImageInput"
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            @click.self="closeImageInput"
+          >
+            <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+              <h4 class="text-sm text-white/80">描述这张图片</h4>
+              <textarea
+                v-model="mediaDescription"
+                class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
+                placeholder="描述你想发送的图片内容…"
+                rows="3"
+              />
+              <div class="flex justify-end gap-3">
+                <button
+                  class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
+                  type="button"
+                  @click="closeImageInput"
+                >
+                  取消
+                </button>
+                <button
+                  class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  type="button"
+                  :disabled="!mediaDescription.trim()"
+                  @click="sendImage"
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
 
-<Teleport to="body">
-  <Transition name="fade">
-    <div v-if="showVoiceInput" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" @click.self="showVoiceInput = false">
-      <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
-        <h4 class="text-sm text-white/80">描述这条语音</h4>
-        <textarea
-          v-model="mediaDescription"
-          class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
-          placeholder="描述语音内容…"
-          rows="3"
-        ></textarea>
-        <div class="flex justify-end gap-3">
-          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" type="button" @click="showVoiceInput = false">取消</button>
-          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" type="button" :disabled="!mediaDescription.trim()" @click="sendVoice">发送</button>
-        </div>
-      </div>
-    </div>
-  </Transition>
-</Teleport>
-
+      <!-- 语音输入弹窗 -->
+      <Teleport to="body">
+        <Transition name="fade">
+          <div
+            v-if="showVoiceInput"
+            class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4"
+            @click.self="closeVoiceInput"
+          >
+            <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+              <h4 class="text-sm text-white/80">描述这条语音</h4>
+              <textarea
+                v-model="mediaDescription"
+                class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
+                placeholder="描述语音内容…"
+                rows="3"
+              />
+              <div class="flex justify-end gap-3">
+                <button
+                  class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded"
+                  type="button"
+                  @click="closeVoiceInput"
+                >
+                  取消
+                </button>
+                <button
+                  class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                  type="button"
+                  :disabled="!mediaDescription.trim()"
+                  @click="sendVoice"
+                >
+                  发送
+                </button>
+              </div>
+            </div>
+          </div>
+        </Transition>
+      </Teleport>
 
       <!-- 表情包选择器 -->
-      <div v-if="showStickerPicker" class="absolute bottom-full left-0 right-0 bg-neutral-900 border-t border-white/10 p-3 max-h-48 overflow-y-auto">
+      <div
+        v-if="showStickerPicker"
+        class="absolute bottom-full left-0 right-0 bg-neutral-900 border-t border-white/10 p-3 max-h-48 overflow-y-auto"
+      >
         <div class="grid grid-cols-4 gap-2">
           <div
             v-for="sticker in stickers"
@@ -204,7 +258,9 @@
             选择图片
             <input type="file" accept="image/*" class="hidden" @change="onWallpaperChange" />
           </label>
-          <button v-if="session?.wallpaper" class="text-xs text-red-400/60" @click="clearWallpaper">清除壁纸</button>
+          <button v-if="session?.wallpaper" class="text-xs text-red-400/60" @click="clearWallpaper">
+            清除壁纸
+          </button>
         </div>
 
         <!-- 气泡样式 -->
@@ -238,11 +294,21 @@
           <label class="text-xs text-white/40">回复模式</label>
           <div class="flex gap-3">
             <label class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer">
-              <input type="radio" :checked="session?.replyMode === 'random'" @change="updateReplyMode('random')" class="accent-white" />
+              <input
+                type="radio"
+                :checked="session?.replyMode === 'random'"
+                class="accent-white"
+                @change="updateReplyMode('random')"
+              />
               纯随机
             </label>
             <label class="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer">
-              <input type="radio" :checked="session?.replyMode === 'keyword'" @change="updateReplyMode('keyword')" class="accent-white" />
+              <input
+                type="radio"
+                :checked="session?.replyMode === 'keyword'"
+                class="accent-white"
+                @change="updateReplyMode('keyword')"
+              />
               关键词匹配
             </label>
           </div>
@@ -320,6 +386,11 @@ const inputText = ref('')
 const showStickerPicker = ref(false)
 const showSettings = ref(false)
 const showFocus = ref(false)
+
+const showImageInput = ref(false)
+const showVoiceInput = ref(false)
+const mediaDescription = ref('')
+
 const stickers = ref<StickerItem[]>([])
 const msgContainer = ref<HTMLElement | null>(null)
 
@@ -361,15 +432,19 @@ const cardBubbleClass = computed(() => {
 
 function parseCssString(css: string): Record<string, string> {
   const styles: Record<string, string> = {}
+
   try {
     css.split(';').forEach(rule => {
       const [key, val] = rule.split(':').map(s => s.trim())
       if (key && val) {
-        const camelKey = key.replace(/-([a-z])/g, (_, c) => c.toUpperCase())
+        const camelKey = key.replace(/-([a-z])/g, (_, c: string) => c.toUpperCase())
         styles[camelKey] = val
       }
     })
-  } catch { /* ignore */ }
+  } catch {
+    // ignore invalid css string
+  }
+
   return styles
 }
 
@@ -385,11 +460,13 @@ const customBubbleCssCard = computed(() => {
 
 onMounted(async () => {
   session.value = (await getCardSession(sessionId)) || null
+
   if (session.value) {
     character.value = (await getCardCharacter(session.value.cardCharacterId)) || null
     const persona = await db.personas.get(session.value.personaId)
     personaAvatar.value = persona?.avatar || ''
   }
+
   if (character.value && character.value.statusTexts.length > 0) {
     const idx = Math.floor(Math.random() * character.value.statusTexts.length)
     characterStatus.value = character.value.statusTexts[idx]
@@ -412,18 +489,37 @@ onUnmounted(() => {
 })
 
 function clearTimers() {
-  if (replyTimer) { clearTimeout(replyTimer); replyTimer = null }
-  if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null }
+  if (replyTimer) {
+    clearTimeout(replyTimer)
+    replyTimer = null
+  }
+
+  if (deadlineTimer) {
+    clearTimeout(deadlineTimer)
+    deadlineTimer = null
+  }
 }
 
 function openImageInput() {
   mediaDescription.value = ''
+  showVoiceInput.value = false
   showImageInput.value = true
+}
+
+function closeImageInput() {
+  showImageInput.value = false
+  mediaDescription.value = ''
 }
 
 function openVoiceInput() {
   mediaDescription.value = ''
+  showImageInput.value = false
   showVoiceInput.value = true
+}
+
+function closeVoiceInput() {
+  showVoiceInput.value = false
+  mediaDescription.value = ''
 }
 
 // ========== 发送消息 ==========
@@ -434,6 +530,7 @@ async function sendText() {
 
   // 支持分段多气泡：换行分隔
   const segments = text.split('\n').filter(s => s.trim())
+
   for (const seg of segments) {
     await sendUserMessage(sessionId, { content: seg.trim() })
   }
@@ -443,24 +540,38 @@ async function sendText() {
   scrollToBottom()
 }
 
-async function sendFakeImage() {
-  const desc = prompt('图片描述')
-  if (desc === null) return
+async function sendImage() {
+  const desc = mediaDescription.value.trim()
+  if (!desc) return
+
   await sendUserMessage(sessionId, {
     content: '',
-    media: { type: 'image', description: desc || '图片', url: '' }
+    media: {
+      type: 'image',
+      description: desc,
+      url: ''
+    }
   })
+
+  closeImageInput()
   messages.value = await getMessages(sessionId)
   scrollToBottom()
 }
 
-async function sendFakeVoice() {
-  const desc = prompt('语音描述')
-  if (desc === null) return
+async function sendVoice() {
+  const desc = mediaDescription.value.trim()
+  if (!desc) return
+
   await sendUserMessage(sessionId, {
     content: '',
-    media: { type: 'voice', description: desc || '语音消息', url: '' }
+    media: {
+      type: 'voice',
+      description: desc,
+      url: ''
+    }
   })
+
+  closeVoiceInput()
   messages.value = await getMessages(sessionId)
   scrollToBottom()
 }
@@ -468,8 +579,14 @@ async function sendFakeVoice() {
 async function sendSticker(sticker: StickerItem) {
   await sendUserMessage(sessionId, {
     content: '',
-    media: { type: 'sticker', description: sticker.description, url: sticker.url, name: sticker.name }
+    media: {
+      type: 'sticker',
+      description: sticker.description,
+      url: sticker.url,
+      name: sticker.name
+    }
   })
+
   showStickerPicker.value = false
   messages.value = await getMessages(sessionId)
   scrollToBottom()
@@ -497,7 +614,11 @@ function triggerReply() {
   // 最晚兜底计时器
   deadlineTimer = setTimeout(async () => {
     if (replyState.value === 'thinking') {
-      if (replyTimer) { clearTimeout(replyTimer); replyTimer = null }
+      if (replyTimer) {
+        clearTimeout(replyTimer)
+        replyTimer = null
+      }
+
       await doFallbackReply()
     }
   }, maxDelay)
@@ -507,7 +628,10 @@ function triggerReply() {
 async function doNormalReply() {
   if (replyState.value !== 'thinking' || !session.value) return
 
-  if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null }
+  if (deadlineTimer) {
+    clearTimeout(deadlineTimer)
+    deadlineTimer = null
+  }
 
   const recentUserMsgs = messages.value
     .filter(m => m.role === 'user')
@@ -516,6 +640,7 @@ async function doNormalReply() {
     .join(' ')
 
   let card = null
+
   if (session.value.replyMode === 'keyword' && recentUserMsgs.trim()) {
     card = await drawByKeyword(recentUserMsgs, session.value.libraryIds)
   }
@@ -557,16 +682,18 @@ async function doFallbackReply() {
 }
 
 // ========== 专注完成 ==========
+
 async function onFocusCompleted(_minutes: number, _goal: string) {
   showFocus.value = false
+
   const cards = await drawRandomCards(session.value?.libraryIds || [], 1)
+
   if (cards.length > 0) {
     await sendCardReply(sessionId, cards[0].content, [cards[0].id])
     messages.value = await getMessages(sessionId)
     scrollToBottom()
   }
 }
-
 
 // ========== 设置 ==========
 
@@ -578,11 +705,14 @@ async function updateTypingText(val: string) {
 async function onWallpaperChange(e: Event) {
   const file = (e.target as HTMLInputElement).files?.[0]
   if (!file) return
+
   const reader = new FileReader()
+
   reader.onload = async () => {
     await updateCardSession(sessionId, { wallpaper: reader.result as string })
     session.value = (await getCardSession(sessionId)) || null
   }
+
   reader.readAsDataURL(file)
 }
 
@@ -612,6 +742,7 @@ async function updateDelay(which: 'min' | 'max', val: number) {
   } else {
     await updateCardSession(sessionId, { replyDelayMax: val })
   }
+
   session.value = (await getCardSession(sessionId)) || null
 }
 
@@ -630,10 +761,18 @@ function scrollToBottom() {
 .typing-indicator {
   animation: pulse 1.5s ease-in-out infinite;
 }
+
 @keyframes pulse {
-  0%, 100% { opacity: 0.4; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
+
 .fade-enter-active,
 .fade-leave-active {
   transition: opacity 0.2s ease;
@@ -643,5 +782,4 @@ function scrollToBottom() {
 .fade-leave-to {
   opacity: 0;
 }
-
 </style>
