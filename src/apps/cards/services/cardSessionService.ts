@@ -29,7 +29,6 @@ export async function createCardCharacter(data: {
   return character
 }
 
-
 export async function updateCardCharacter(
   id: string,
   data: Partial<Pick<CardCharacter, 'name' | 'avatar' | 'personality' | 'statusTexts'>>
@@ -40,7 +39,6 @@ export async function updateCardCharacter(
     updatedAt: Date.now()
   })
 }
-
 
 export async function deleteCardCharacter(id: string): Promise<void> {
   const sessions = await db.cardSessions.where('cardCharacterId').equals(id).toArray()
@@ -70,7 +68,10 @@ export async function createCardSession(data: {
   replyDelayMax?: number
   libraryIds?: string[]
   typingIndicatorText?: string
+  proactiveEnabled?: boolean
 }): Promise<CardSession> {
+  const now = Date.now()
+
   const session: CardSession = {
     id: genId(),
     cardCharacterId: data.cardCharacterId,
@@ -82,16 +83,20 @@ export async function createCardSession(data: {
     replyMode: data.replyMode || 'random',
     replyDelayMin: data.replyDelayMin ?? 0,
     replyDelayMax: data.replyDelayMax ?? 20,
-    libraryIds: [...(data.libraryIds || [])], // 关键：转成普通数组
+    libraryIds: [...(data.libraryIds || [])],
     typingIndicatorText: data.typingIndicatorText || '正在输入...',
-    lastMessageAt: Date.now(),
-    createdAt: Date.now()
+
+    proactiveEnabled: data.proactiveEnabled ?? false,
+    lastProactiveAt: null,
+    nextProactiveAt: null,
+
+    lastMessageAt: now,
+    createdAt: now
   }
 
   await db.cardSessions.put(session)
   return session
 }
-
 
 export async function updateCardSession(
   id: string,
@@ -119,10 +124,13 @@ export async function getMessages(sessionId: string): Promise<CardMessage[]> {
   return db.cardMessages.where('sessionId').equals(sessionId).sortBy('timestamp')
 }
 
-export async function sendUserMessage(sessionId: string, data: {
-  content: string
-  media?: CardMessage['media']
-}): Promise<CardMessage> {
+export async function sendUserMessage(
+  sessionId: string,
+  data: {
+    content: string
+    media?: CardMessage['media']
+  }
+): Promise<CardMessage> {
   const msg: CardMessage = {
     id: genId(),
     sessionId,

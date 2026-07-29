@@ -239,6 +239,40 @@
       <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto">
         <h2 class="text-sm text-white/80">消息框设置</h2>
 
+        <!-- 主动投递 -->
+        <div class="space-y-2 rounded border border-white/10 bg-black/30 px-3 py-3">
+          <div class="flex items-center justify-between gap-3">
+            <div>
+              <p class="text-xs text-white/70">主动投递</p>
+              <p class="text-xs text-white/25 mt-1 leading-5">
+                开启后，角色会在随机时刻主动送来字卡。
+              </p>
+            </div>
+
+            <label class="relative inline-flex items-center cursor-pointer flex-shrink-0">
+              <input
+                type="checkbox"
+                class="sr-only peer"
+                :checked="!!session?.proactiveEnabled"
+                @change="toggleProactive(($event.target as HTMLInputElement).checked)"
+              />
+              <div
+                class="w-10 h-5 bg-white/10 rounded-full peer peer-checked:bg-white/70 transition"
+              ></div>
+              <div
+                class="absolute left-0.5 top-0.5 w-4 h-4 bg-neutral-500 rounded-full transition peer-checked:translate-x-5 peer-checked:bg-black"
+              ></div>
+            </label>
+          </div>
+
+          <p
+            v-if="!hasBoundLibraries"
+            class="text-xs text-red-300/50 leading-5"
+          >
+            当前消息框还没有绑定字卡库，主动投递暂时不会发出内容。
+          </p>
+        </div>
+
         <!-- 打字指示器文字 -->
         <div class="space-y-2">
           <label class="text-xs text-white/40">打字指示器文字</label>
@@ -371,6 +405,10 @@ import {
   updateCardSession
 } from './services/cardSessionService'
 import { drawRandomCards, drawByKeyword } from './services/cardReplyService'
+import {
+  ensureSessionNextProactiveAt,
+  processSessionProactiveMessage
+} from './services/cardProactiveService'
 import FocusMode from './components/FocusMode.vue'
 
 const route = useRoute()
@@ -400,8 +438,13 @@ const replyState = ref<'idle' | 'thinking'>('idle')
 // 打字指示器文字
 const typingText = computed(() => session.value?.typingIndicatorText || '正在输入...')
 
+const hasBoundLibraries = computed(() => {
+  return Array.isArray(session.value?.libraryIds) && session.value.libraryIds.length > 0
+})
+
 let replyTimer: ReturnType<typeof setTimeout> | null = null
 let deadlineTimer: ReturnType<typeof setTimeout> | null = null
+let proactiveTimer: ReturnType<typeof setInterval> | null = null
 
 // 壁纸样式
 const wallpaperStyle = computed(() => {
@@ -481,6 +524,13 @@ onMounted(async () => {
     stickers.value = await db.stickerItems.where('packId').anyOf(packIds).toArray()
   }
 
+  if (session.value?.proactiveEnabled) {
+    await ensureSessionNextProactiveAt(sessionId)
+    session.value = (await getCardSession(sessionId)) || null
+  }
+
+  startProactivePolling()
+
   scrollToBottom()
 })
 
@@ -497,6 +547,11 @@ function clearTimers() {
   if (deadlineTimer) {
     clearTimeout(deadlineTimer)
     deadlineTimer = null
+  }
+
+  if (proactiveTimer) {
+    clearInterval(proactiveTimer)
+    proactiveTimer = null
   }
 }
 
@@ -696,6 +751,43 @@ async function onFocusCompleted(_minutes: number, _goal: string) {
 }
 
 // ========== 设置 ==========
+
+async function toggleProactive(enabled: boolean) {
+  if (!session.value) return
+
+  if (enabled) {
+    await updateCardSession(sessionId, {
+      proactiveEnabled: true,
+      nextProactiveAt: null
+    })
+
+    await ensureSessionNextProactiveAt(sessionId)
+  } else {
+    await updateCardSession(sessionId, {
+      proactiveEnabled: false,
+      nextProactiveAt: null
+    })
+  }
+
+  session.value = (await getCardSession(sessionId)) || null
+}
+
+function startProactivePolling() {
+  if (proactiveTimer) return
+
+  proactiveTimer = setInterval(async () => {
+    if (!session.value?.proactiveEnabled) return
+
+    const sent = await processSessionProactiveMessage(sessionId)
+
+    session.value = (await getCardSession(sessionId)) || null
+
+    if (sent) {
+      messages.value = await getMessages(sessionId)
+      scrollToBottom()
+    }
+  }, 30 * 1000)
+}
 
 async function updateTypingText(val: string) {
   await updateCardSession(sessionId, { typingIndicatorText: val || '正在输入...' })
