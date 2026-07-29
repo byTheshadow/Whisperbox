@@ -87,8 +87,8 @@
     <div class="border-t border-white/10 bg-black/60 backdrop-blur-md px-4 py-3 relative z-10">
       <!-- 媒体快捷按钮 -->
       <div class="flex items-center gap-3 mb-2">
-        <button class="text-xs text-white/30 hover:text-white/60" @click="sendFakeImage">图片</button>
-        <button class="text-xs text-white/30 hover:text-white/60" @click="sendFakeVoice">语音</button>
+        <button class="text-xs text-white/30 hover:text-white/60" @click="openImageInput">图片</button>
+<button class="text-xs text-white/30 hover:text-white/60" @click="openVoiceInput">语音</button>
         <button class="text-xs text-white/30 hover:text-white/60" @click="showStickerPicker = !showStickerPicker">表情</button>
         <div class="flex-1" />
         <!-- 触发角色回复按钮 -->
@@ -118,6 +118,47 @@
           发送
         </button>
       </div>
+
+      <Teleport to="body">
+  <Transition name="fade">
+    <div v-if="showImageInput" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" @click.self="showImageInput = false">
+      <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+        <h4 class="text-sm text-white/80">描述这张图片</h4>
+        <textarea
+          v-model="mediaDescription"
+          class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
+          placeholder="描述你想发送的图片内容…"
+          rows="3"
+        ></textarea>
+        <div class="flex justify-end gap-3">
+          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" type="button" @click="showImageInput = false">取消</button>
+          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" type="button" :disabled="!mediaDescription.trim()" @click="sendImage">发送</button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+
+<Teleport to="body">
+  <Transition name="fade">
+    <div v-if="showVoiceInput" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4" @click.self="showVoiceInput = false">
+      <div class="w-full max-w-sm bg-neutral-900 border border-white/10 rounded-lg p-5 space-y-4">
+        <h4 class="text-sm text-white/80">描述这条语音</h4>
+        <textarea
+          v-model="mediaDescription"
+          class="w-full bg-black border border-white/20 rounded px-3 py-2 text-sm text-white/80 h-24 resize-none"
+          placeholder="描述语音内容…"
+          rows="3"
+        ></textarea>
+        <div class="flex justify-end gap-3">
+          <button class="text-xs text-white/40 px-3 py-1.5 border border-white/10 rounded" type="button" @click="showVoiceInput = false">取消</button>
+          <button class="text-xs text-white/80 px-3 py-1.5 border border-white/20 rounded hover:bg-white/10" type="button" :disabled="!mediaDescription.trim()" @click="sendVoice">发送</button>
+        </div>
+      </div>
+    </div>
+  </Transition>
+</Teleport>
+
 
       <!-- 表情包选择器 -->
       <div v-if="showStickerPicker" class="absolute bottom-full left-0 right-0 bg-neutral-900 border-t border-white/10 p-3 max-h-48 overflow-y-auto">
@@ -375,6 +416,16 @@ function clearTimers() {
   if (deadlineTimer) { clearTimeout(deadlineTimer); deadlineTimer = null }
 }
 
+function openImageInput() {
+  mediaDescription.value = ''
+  showImageInput.value = true
+}
+
+function openVoiceInput() {
+  mediaDescription.value = ''
+  showVoiceInput.value = true
+}
+
 // ========== 发送消息 ==========
 
 async function sendText() {
@@ -583,4 +634,14 @@ function scrollToBottom() {
   0%, 100% { opacity: 0.4; }
   50% { opacity: 1; }
 }
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
 </style>
