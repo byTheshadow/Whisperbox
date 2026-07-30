@@ -8,20 +8,18 @@ import { SPREADS as TAROT_SPREADS } from './spreads'
 import { LENORMAND_SPREADS } from './lenormandSpreads'
 
 import { ASTROLOGY_DICE_DECK } from './astrologyDice'
- import { ASTROLOGY_DICE_SPREADS } from './astrologyDiceSpreads'
+import { ASTROLOGY_DICE_SPREADS } from './astrologyDiceSpreads'
 
 /** 所有牌组 */
 export const ALL_DECKS: Deck[] = [
   TAROT_DECK,
-  LENORMAND_DECK
+  LENORMAND_DECK, // <-- 这里加上了逗号
   ASTROLOGY_DICE_DECK,
 ]
 
 /** 所有牌阵 */
 export const ALL_SPREADS: Spread[] = [
   ...TAROT_SPREADS,
-  ...LENORMAND_SPREADS
+  ...LENORMAND_SPREADS, // <-- 这里加上了逗号
   ...ASTROLOGY_DICE_SPREADS,
 ]
-
-
