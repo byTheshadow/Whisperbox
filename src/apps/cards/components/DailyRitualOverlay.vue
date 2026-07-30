@@ -50,10 +50,12 @@
           </div>
         </div>
         
-        <p class="text-xs text-white/60 leading-relaxed px-4 py-3 bg-white/[0.01] border border-white/5 rounded-lg">
-          {{ ritual?.tarotInterpretation || '静心凝神，感受当下的能量。' }}
+        <!-- 解释显示区：优先使用 AI 解读，AI 解读为空则展示卡牌库本身的释义 -->
+        <p class="text-xs text-white/60 leading-relaxed px-4 py-3 bg-white/[0.01] border border-white/5 rounded-lg text-left max-h-48 overflow-y-auto">
+          {{ ritual?.tarotInterpretation || tarotCard?.uprightMeaning || '静心凝神，感受当下的能量。' }}
         </p>
       </div>
+
 
       <button
         class="text-xs text-white/40 border border-white/20 px-5 py-2 rounded-lg hover:bg-white/5 transition tracking-wider"
