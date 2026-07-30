@@ -1,10 +1,10 @@
 // src/apps/divination/services/divinationService.ts
 
-import type { 
-  Deck, 
-  Spread, 
-  DivinationCard, 
-  DrawnCard, 
+import type {
+  Deck,
+  Spread,
+  DivinationCard,
+  DrawnCard,
   DivinationReading,
   DeckType
 } from '../types'
@@ -50,19 +50,35 @@ export function shuffleDeck(cards: DivinationCard[]): DivinationCard[] {
   return shuffled
 }
 
-/** 抽牌 */
+/**
+ * 抽牌
+ * - 如果位置未指定 categoryFilter，按顺序从 shuffledCards 抽取
+ * - 如果位置指定了 categoryFilter，仅从匹配该 category 的牌中抽取
+ * 已抽出的牌不会重复出现
+ */
 export function drawCards(
   deck: Deck,
   spread: Spread,
   shuffledCards: DivinationCard[]
 ): DrawnCard[] {
   const result: DrawnCard[] = []
+  const used = new Set<string>()
 
-  for (let i = 0; i < spread.positions.length; i++) {
-    const card = shuffledCards[i]
-    const position = spread.positions[i]
+  for (const position of spread.positions) {
+    let card: DivinationCard | undefined
+
+    if (position.categoryFilter) {
+      card = shuffledCards.find(
+        c => c.category === position.categoryFilter && !used.has(c.id)
+      )
+    } else {
+      card = shuffledCards.find(c => !used.has(c.id))
+    }
+
+    if (!card) continue
+
+    used.add(card.id)
     const isReversed = deck.allowReversed ? Math.random() > 0.5 : false
-
     result.push({ card, position, isReversed })
   }
 

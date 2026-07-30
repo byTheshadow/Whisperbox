@@ -1,13 +1,23 @@
 // src/apps/divination/types.ts
-/** 牌组类型 */
-export type DeckType = 'tarot' | 'lenormand' | 'spirit' | 'custom'
 
-/** 单张牌 */
+export type DeckType =
+  | 'tarot'
+  | 'lenormand'
+  | 'spirit'
+  | 'astrology-dice'
+  | 'custom'
+
 export interface DivinationCard {
   id: string
   deckType: DeckType
   name: string
   imageUrl: string
+  /** 内联 SVG 字符串，优先级最高 */
+  iconSvg?: string
+  /** Unicode 符号（如 ☉ ♈ I），SVG 缺失时显示 */
+  symbol?: string
+  /** 分类标签，供 categoryFilter 使用（如占星骰子的 'planet' | 'sign' | 'house'） */
+  category?: string
   uprightKeywords: string[]
   reversedKeywords: string[]
   uprightMeaning: string
@@ -15,7 +25,6 @@ export interface DivinationCard {
   order: number
 }
 
-/** 牌组 */
 export interface Deck {
   id: string
   type: DeckType
@@ -26,7 +35,6 @@ export interface Deck {
   cards: DivinationCard[]
 }
 
-/** 牌阵中的位置定义 */
 export interface SpreadPosition {
   index: number
   name: string
@@ -34,30 +42,25 @@ export interface SpreadPosition {
   x: number
   y: number
   rotation: number
+  /** 若指定，则此位置只从匹配该 category 的牌中抽取（用于占星骰子等分池抽取） */
+  categoryFilter?: string
 }
 
-/** 牌阵 */
 export interface Spread {
   id: string
   name: string
   description: string
   suitableFor: string[]
-  /**
-   * 支持的牌组类型。
-   * 为空数组或 undefined 表示通用牌阵，任何牌组都可以用。
-   */
   supportedDeckTypes?: DeckType[]
   positions: SpreadPosition[]
 }
 
-/** 抽到的一张牌 */
 export interface DrawnCard {
   card: DivinationCard
   position: SpreadPosition
   isReversed: boolean
 }
 
-/** 一次占卜记录 */
 export interface DivinationReading {
   id: string
   deckId: string
@@ -68,8 +71,7 @@ export interface DivinationReading {
   createdAt: number
 }
 
-/** 占卜流程状态 */
-export type DivinationStep = 
+export type DivinationStep =
   | 'select-deck'
   | 'select-spread'
   | 'input-question'

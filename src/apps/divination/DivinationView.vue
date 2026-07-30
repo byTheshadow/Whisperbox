@@ -26,6 +26,8 @@ import SpreadSelector from './components/SpreadSelector.vue'
 import CardReveal from './components/CardReveal.vue'
 import ReadingResult from './components/ReadingResult.vue'
 import ShuffleAnimation from './components/ShuffleAnimation.vue'
+import DiceRollAnimation from './components/DiceRollAnimation.vue'   // 新增
+
 
 const router = useRouter()
 
@@ -58,17 +60,19 @@ const aiError = ref<string | null>(null)
 
 // 步骤标题
 const stepTitle = computed(() => {
+  const isDice = selectedDeck.value?.type === 'astrology-dice'
   switch (currentStep.value) {
     case 'select-deck': return '选择牌组'
     case 'select-spread': return '选择牌阵'
     case 'input-question': return '设定问题'
-    case 'shuffle': return '洗牌'
-    case 'draw': return '抽牌'
-    case 'reveal': return '翻牌'
+    case 'shuffle': return isDice ? '掷骰' : '洗牌'
+    case 'draw': return isDice ? '定象' : '抽牌'
+    case 'reveal': return isDice ? '解读骰面' : '翻牌'
     case 'result': return '解读'
     default: return ''
   }
 })
+
 
 function handleSelectDeck(deckId: string) {
   selectedDeckId.value = deckId
@@ -280,9 +284,18 @@ function restart() {
       </template>
       
       <!-- 洗牌（自动播放动画） -->
-      <template v-else-if="currentStep === 'shuffle'">
-        <ShuffleAnimation @finish="handleShuffleFinished" />
-      </template>
+      
+<template v-else-if="currentStep === 'shuffle'">
+  <DiceRollAnimation
+    v-if="selectedDeck?.type === 'astrology-dice'"
+    @finish="handleShuffleFinished"
+  />
+  <ShuffleAnimation
+    v-else
+    @finish="handleShuffleFinished"
+  />
+</template>
+
       
       <!-- 抽牌 -->
       <template v-else-if="currentStep === 'draw'">

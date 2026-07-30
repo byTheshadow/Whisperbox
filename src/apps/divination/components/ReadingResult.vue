@@ -1,7 +1,7 @@
 <!-- src/apps/divination/components/ReadingResult.vue -->
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { DivinationReading, Deck, Spread } from '../types'
+import type { DivinationReading, Deck, Spread, DrawnCard } from '../types'
 
 const props = defineProps<{
   reading: DivinationReading
@@ -22,6 +22,20 @@ const isConfigError = computed(() => {
   if (!props.error) return false
   return /设置|配置|API|密钥|模型|应用设置/i.test(props.error)
 })
+
+function getMeaning(drawn: DrawnCard): string {
+  if (drawn.isReversed && drawn.card.reversedMeaning) {
+    return drawn.card.reversedMeaning
+  }
+  return drawn.card.uprightMeaning || '暂无解释文本'
+}
+
+function getKeywords(drawn: DrawnCard): string[] {
+  if (drawn.isReversed && drawn.card.reversedKeywords.length > 0) {
+    return drawn.card.reversedKeywords
+  }
+  return drawn.card.uprightKeywords
+}
 </script>
 
 <template>
@@ -39,21 +53,75 @@ const isConfigError = computed(() => {
       <div
         v-for="(drawn, index) in reading.drawnCards"
         :key="index"
-        class="p-3 rounded-lg border border-white/10 bg-white/5"
+        class="rounded-lg border border-white/10 bg-white/[0.03] overflow-hidden"
       >
-        <div class="flex items-center justify-between">
-          <span class="text-xs text-violet-400">{{ drawn.position.name }}</span>
-          <span class="text-[10px] text-white/30">
+        <!-- 头部：位置 + 正逆位 -->
+        <div class="flex items-center justify-between px-3 pt-3">
+          <span class="text-xs text-violet-400 tracking-wide">{{ drawn.position.name }}</span>
+          <span
+            class="text-[10px] tracking-wider"
+            :class="drawn.isReversed ? 'text-rose-300/80' : 'text-white/30'"
+          >
             {{ drawn.isReversed ? '逆位' : '正位' }}
           </span>
         </div>
-        <div class="text-sm text-white/80 mt-1">{{ drawn.card.name }}</div>
+
+        <!-- 牌视觉 + 名称 -->
+        <div class="flex items-center gap-3 px-3 pt-2">
+          <div
+            class="card-icon flex-shrink-0"
+            :class="{ 'is-reversed': drawn.isReversed }"
+          >
+            <div
+              v-if="drawn.card.iconSvg"
+              class="card-icon-svg"
+              v-html="drawn.card.iconSvg"
+            />
+            <span v-else-if="drawn.card.symbol" class="card-icon-symbol">
+              {{ drawn.card.symbol }}
+            </span>
+            <span v-else class="card-icon-fallback">
+              {{ drawn.card.name.slice(0, 1) }}
+            </span>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-white/85 font-light tracking-wide">{{ drawn.card.name }}</div>
+            <div class="text-[11px] text-white/40 mt-0.5 leading-relaxed">
+              {{ drawn.position.description }}
+            </div>
+          </div>
+        </div>
+
+        <!-- 关键词 -->
+        <div
+          v-if="getKeywords(drawn).length > 0"
+          class="flex flex-wrap gap-1.5 px-3 pt-3"
+        >
+          <span
+            v-for="kw in getKeywords(drawn)"
+            :key="kw"
+            class="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-300/80 border border-violet-500/15"
+          >
+            {{ kw }}
+          </span>
+        </div>
+
+        <!-- 牌意解释（兜底文本） -->
+        <div class="mt-3 mx-3 mb-3 px-3 py-2.5 rounded bg-black/30 border border-white/5">
+          <div class="text-[10px] text-white/30 mb-1 tracking-wider">
+            {{ drawn.isReversed ? '逆位含义' : '牌意' }}
+          </div>
+          <p class="text-xs text-white/65 leading-relaxed whitespace-pre-wrap">
+            {{ getMeaning(drawn) }}
+          </p>
+        </div>
       </div>
     </div>
 
     <!-- AI 解读 -->
     <div class="space-y-3">
-      <div class="text-xs text-white/40">解读</div>
+      <div class="text-xs text-white/40">AI 综合解读</div>
 
       <!-- 已有解读 -->
       <div
@@ -91,7 +159,6 @@ const isConfigError = computed(() => {
           {{ error }}
         </div>
 
-        <!-- 未配置：一键跳转 -->
         <div v-if="isConfigError" class="flex gap-2">
           <button
             class="text-xs text-violet-200 px-3 py-1.5 border border-violet-400/30 rounded hover:bg-violet-500/10 transition"
@@ -107,7 +174,6 @@ const isConfigError = computed(() => {
           </button>
         </div>
 
-        <!-- 其他错误：仅重试 -->
         <button
           v-else
           class="text-xs text-red-300/80 px-3 py-1.5 border border-red-400/20 rounded hover:bg-red-500/10 transition"
@@ -140,6 +206,51 @@ const isConfigError = computed(() => {
 </template>
 
 <style scoped>
+.card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(196, 181, 253, 0.9);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: transform 300ms ease;
+}
+
+.card-icon.is-reversed {
+  transform: rotate(180deg);
+}
+
+.card-icon-svg {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.card-icon-svg :deep(svg) {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+}
+
+.card-icon-symbol {
+  font-size: 1.5rem;
+  font-family: ui-serif, Georgia, serif;
+  line-height: 1;
+}
+
+.card-icon-fallback {
+  font-size: 1rem;
+  color: rgba(255, 255, 255, 0.5);
+  font-family: ui-serif, Georgia, serif;
+}
+
 .ai-dot {
   width: 6px;
   height: 6px;
@@ -159,3 +270,4 @@ const isConfigError = computed(() => {
   }
 }
 </style>
+

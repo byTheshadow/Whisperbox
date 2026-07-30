@@ -13,10 +13,8 @@ defineEmits<{
   reveal: [index: number]
 }>()
 
-/** 已入场的卡牌索引（用于 stagger 入场动画） */
 const enteredIndices = ref<number[]>([])
 
-/** 组件挂载后，依次让卡牌浮现 */
 onMounted(() => {
   props.drawnCards.forEach((_, index) => {
     setTimeout(() => {
@@ -48,7 +46,6 @@ function isEntered(index: number): boolean {
         transitionDelay: `${index * 30}ms`
       }"
     >
-      <!-- 3D 翻牌容器 -->
       <div
         class="card-flipper"
         :class="{ 'is-revealed': isRevealed(index) }"
@@ -61,10 +58,10 @@ function isEntered(index: number): boolean {
             <div class="card-back-glyph">✦</div>
           </div>
         </div>
-        
+
         <!-- 牌面 -->
         <div class="card-face card-front">
-          <div 
+          <div
             class="card-front-inner"
             :class="{ 'is-reversed': drawn.isReversed }"
           >
@@ -75,22 +72,30 @@ function isEntered(index: number): boolean {
               class="card-image"
             />
             <div v-else class="card-placeholder">
+              <div
+                v-if="drawn.card.iconSvg"
+                class="card-icon-svg"
+                v-html="drawn.card.iconSvg"
+              />
+              <span v-else-if="drawn.card.symbol" class="card-symbol">
+                {{ drawn.card.symbol }}
+              </span>
               <div class="card-name">{{ drawn.card.name }}</div>
-              <div class="card-order">{{ drawn.card.order }}</div>
+              <div v-if="!drawn.card.symbol && !drawn.card.iconSvg" class="card-order">
+                {{ drawn.card.order }}
+              </div>
             </div>
           </div>
-          
-          <!-- 逆位标签（不跟随内部旋转） -->
-          <div 
-            v-if="drawn.isReversed" 
+
+          <div
+            v-if="drawn.isReversed"
             class="reversed-tag"
           >
             逆位
           </div>
         </div>
       </div>
-      
-      <!-- 位置标签 -->
+
       <div class="position-label">
         <div class="position-name">{{ drawn.position.name }}</div>
         <div v-if="isRevealed(index)" class="position-card-name">
@@ -102,20 +107,17 @@ function isEntered(index: number): boolean {
 </template>
 
 <style scoped>
-/* 舞台：给整个占卜区域一个 3D 视角 */
 .card-reveal-stage {
   perspective: 1200px;
   perspective-origin: 50% 40%;
 }
 
-/* 单张卡牌容器 */
 .card-slot {
   width: 5rem;
   height: 8rem;
   transition: opacity 400ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* 3D 翻牌层 */
 .card-flipper {
   position: relative;
   width: 100%;
@@ -130,18 +132,16 @@ function isEntered(index: number): boolean {
   cursor: default;
 }
 
-/* 未翻开时的悬停浮起 */
 .card-flipper:not(.is-revealed):hover {
   transform: translateY(-4px);
 }
 
 .card-flipper:not(.is-revealed):hover .card-back {
-  box-shadow: 
+  box-shadow:
     0 8px 24px rgba(139, 92, 246, 0.25),
     0 0 0 1px rgba(139, 92, 246, 0.3);
 }
 
-/* 正反面共享样式 */
 .card-face {
   position: absolute;
   inset: 0;
@@ -152,16 +152,10 @@ function isEntered(index: number): boolean {
   transition: box-shadow 300ms ease;
 }
 
-/* 牌背 */
 .card-back {
-  background: linear-gradient(
-    135deg,
-    #4c1d95 0%,
-    #312e81 50%,
-    #1e1b4b 100%
-  );
+  background: linear-gradient(135deg, #4c1d95 0%, #312e81 50%, #1e1b4b 100%);
   border: 1px solid rgba(139, 92, 246, 0.3);
-  box-shadow: 
+  box-shadow:
     0 2px 8px rgba(0, 0, 0, 0.4),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
@@ -179,7 +173,7 @@ function isEntered(index: number): boolean {
 .card-back-pattern {
   position: absolute;
   inset: 0;
-  background-image: 
+  background-image:
     radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.15) 0%, transparent 60%),
     repeating-linear-gradient(
       45deg,
@@ -197,16 +191,11 @@ function isEntered(index: number): boolean {
   text-shadow: 0 0 12px rgba(139, 92, 246, 0.4);
 }
 
-/* 牌面 */
 .card-front {
   transform: rotateY(180deg);
-  background: linear-gradient(
-    135deg,
-    #1c1917 0%,
-    #292524 100%
-  );
+  background: linear-gradient(135deg, #1c1917 0%, #292524 100%);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow: 
+  box-shadow:
     0 4px 16px rgba(0, 0, 0, 0.5),
     0 0 0 1px rgba(196, 181, 253, 0.2),
     inset 0 1px 0 rgba(255, 255, 255, 0.05);
@@ -239,13 +228,35 @@ function isEntered(index: number): boolean {
   justify-content: center;
   padding: 0.5rem;
   text-align: center;
+  gap: 0.35rem;
+}
+
+.card-icon-svg {
+  width: 32px;
+  height: 32px;
+  color: rgba(196, 181, 253, 0.85);
+  filter: drop-shadow(0 0 6px rgba(139, 92, 246, 0.35));
+}
+
+.card-icon-svg :deep(svg) {
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  fill: none;
+}
+
+.card-symbol {
+  font-size: 1.75rem;
+  color: rgba(196, 181, 253, 0.9);
+  font-family: ui-serif, Georgia, serif;
+  line-height: 1;
+  text-shadow: 0 0 10px rgba(139, 92, 246, 0.35);
 }
 
 .card-name {
   font-size: 0.7rem;
   color: rgba(255, 255, 255, 0.75);
   line-height: 1.3;
-  margin-bottom: 0.25rem;
 }
 
 .card-order {
@@ -254,7 +265,6 @@ function isEntered(index: number): boolean {
   font-family: ui-serif, Georgia, serif;
 }
 
-/* 逆位标签 */
 .reversed-tag {
   position: absolute;
   top: 4px;
@@ -268,7 +278,6 @@ function isEntered(index: number): boolean {
   letter-spacing: 0.5px;
 }
 
-/* 位置标签 */
 .position-label {
   position: absolute;
   top: calc(100% + 6px);
@@ -293,17 +302,10 @@ function isEntered(index: number): boolean {
 }
 
 @keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* 减少动画偏好设置 */
 @media (prefers-reduced-motion: reduce) {
   .card-slot,
   .card-flipper,
