@@ -1,8 +1,9 @@
 <!-- src/apps/divination/components/ReadingResult.vue -->
 <script setup lang="ts">
+import { computed } from 'vue'
 import type { DivinationReading, Deck, Spread } from '../types'
 
-defineProps<{
+const props = defineProps<{
   reading: DivinationReading
   deck: Deck | null
   spread: Spread | null
@@ -13,8 +14,14 @@ defineProps<{
 defineEmits<{
   requestAi: []
   retryAi: []
+  gotoSettings: []
   close: []
 }>()
+
+const isConfigError = computed(() => {
+  if (!props.error) return false
+  return /设置|配置|API|密钥|模型|应用设置/i.test(props.error)
+})
 </script>
 
 <template>
@@ -24,13 +31,13 @@ defineEmits<{
       <div class="text-xs text-white/40">你的问题</div>
       <div class="text-sm text-white/70 mt-1">{{ reading.question }}</div>
     </div>
-    
+
     <!-- 抽到的牌 -->
     <div class="space-y-3">
       <div class="text-xs text-white/40">抽到的牌</div>
-      
-      <div 
-        v-for="(drawn, index) in reading.drawnCards" 
+
+      <div
+        v-for="(drawn, index) in reading.drawnCards"
         :key="index"
         class="p-3 rounded-lg border border-white/10 bg-white/5"
       >
@@ -43,21 +50,21 @@ defineEmits<{
         <div class="text-sm text-white/80 mt-1">{{ drawn.card.name }}</div>
       </div>
     </div>
-    
+
     <!-- AI 解读 -->
     <div class="space-y-3">
       <div class="text-xs text-white/40">解读</div>
-      
+
       <!-- 已有解读 -->
-      <div 
-        v-if="reading.aiInterpretation" 
+      <div
+        v-if="reading.aiInterpretation"
         class="text-sm text-white/70 leading-relaxed whitespace-pre-wrap p-4 rounded-lg border border-violet-500/10 bg-violet-500/[0.03]"
       >
         {{ reading.aiInterpretation }}
       </div>
-      
+
       <!-- 加载中 -->
-      <div 
+      <div
         v-else-if="isRequesting"
         class="flex flex-col items-center justify-center py-8 space-y-3"
       >
@@ -68,21 +75,48 @@ defineEmits<{
         </div>
         <div class="text-xs text-white/40">AI 正在为你解读牌意</div>
       </div>
-      
+
       <!-- 错误 -->
-      <div 
+      <div
         v-else-if="error"
-        class="p-4 rounded-lg border border-red-500/20 bg-red-500/5 space-y-3"
+        class="p-4 rounded-lg border space-y-3"
+        :class="isConfigError
+          ? 'border-violet-500/20 bg-violet-500/[0.04]'
+          : 'border-red-500/20 bg-red-500/5'"
       >
-        <div class="text-xs text-red-300/80 leading-relaxed">{{ error }}</div>
+        <div
+          class="text-xs leading-relaxed"
+          :class="isConfigError ? 'text-violet-200/80' : 'text-red-300/80'"
+        >
+          {{ error }}
+        </div>
+
+        <!-- 未配置：一键跳转 -->
+        <div v-if="isConfigError" class="flex gap-2">
+          <button
+            class="text-xs text-violet-200 px-3 py-1.5 border border-violet-400/30 rounded hover:bg-violet-500/10 transition"
+            @click="$emit('gotoSettings')"
+          >
+            前往设置 →
+          </button>
+          <button
+            class="text-xs text-white/50 px-3 py-1.5 border border-white/10 rounded hover:bg-white/5 transition"
+            @click="$emit('retryAi')"
+          >
+            重试
+          </button>
+        </div>
+
+        <!-- 其他错误：仅重试 -->
         <button
+          v-else
           class="text-xs text-red-300/80 px-3 py-1.5 border border-red-400/20 rounded hover:bg-red-500/10 transition"
           @click="$emit('retryAi')"
         >
           重试
         </button>
       </div>
-      
+
       <!-- 未请求 -->
       <button
         v-else
@@ -92,7 +126,7 @@ defineEmits<{
         请求 AI 解读
       </button>
     </div>
-    
+
     <!-- 操作 -->
     <div class="flex justify-center pt-4">
       <button

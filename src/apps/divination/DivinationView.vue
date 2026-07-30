@@ -177,6 +177,11 @@ function handleRetryAi() {
   handleRequestAi()
 }
 
+/** 跳转到设置页配置 API */
+function handleGotoSettings() {
+  router.push('/settings')
+}
+
 function restart() {
   currentStep.value = 'select-deck'
   selectedDeckId.value = null
@@ -315,6 +320,7 @@ function restart() {
           :error="aiError"
           @request-ai="handleRequestAi"
           @retry-ai="handleRetryAi"
+          @goto-settings="handleGotoSettings"
           @close="restart"
         />
       </template>
@@ -359,4 +365,3 @@ function restart() {
     </footer>
   </div>
 </template>
-
